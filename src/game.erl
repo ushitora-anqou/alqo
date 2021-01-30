@@ -5,6 +5,7 @@
     num_players/1,
     current_turn/1,
     next_turn/1,
+    has_player_lost/2,
     check_finished/1,
     hand/2,
     hand_from_others/2,
@@ -57,14 +58,31 @@ num_players(Board) -> array:size(Board#board.hands).
 
 current_turn(Board) -> Board#board.turn.
 
-% FIXME
-next_turn(Board) -> Board#board.turn rem num_players(Board) + 1.
+next_turn(Board = #board{}) ->
+    case check_finished(Board) of
+        {finished, _} ->
+            erlang:error(game_already_finished);
+        not_finished ->
+            NumPlayers = num_players(Board),
+            Can1 = Board#board.turn rem num_players(Board) + 1,
+            Can2 = Can1 rem NumPlayers + 1,
+            Can3 = Can2 rem NumPlayers + 1,
+            case
+                {has_player_lost(Board, Can1), has_player_lost(Board, Can2),
+                    has_player_lost(Board, Can3)}
+            of
+                {false, _, _} -> Can1;
+                {true, false, _} -> Can2;
+                {true, true, false} -> Can3
+            end
+    end.
+
+has_player_lost(Board = #board{}, PlayerIndex) ->
+    % i.e., all cards of hand are revealed?
+    lists:all(fun({_, H}) -> not H end, hand(Board, PlayerIndex)).
 
 check_finished(Board = #board{}) ->
-    L = [
-        lists:all(fun({_, H}) -> not H end, hand(Board, PI))
-        || PI <- lists:seq(1, num_players(Board))
-    ],
+    L = [has_player_lost(Board, PI) || PI <- lists:seq(1, num_players(Board))],
     case util:count_true(L) >= num_players(Board) - 1 of
         false -> not_finished;
         true -> {finished, util:find_first_index(fun(B) -> not B end, L)}

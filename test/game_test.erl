@@ -5,8 +5,9 @@
 
 new_board_test_() ->
     [
-        {"new_board creates a valid new board", ?setup(fun new_board/1)},
-        {"everything works file", ?setup(fun everything_works_fine/1)}
+        {"new_board creates a valid new board.", ?setup(fun new_board/1)},
+        {"scenario1; #players is 2.", ?setup(fun scenario1/1)},
+        {"scenario2; #players is 4.", ?setup(fun scenario2/1)}
     ].
 
 start() ->
@@ -42,7 +43,7 @@ new_board_N(N) ->
         )
     ].
 
-everything_works_fine(_) ->
+scenario1(_) ->
     B1 = game:new_board(2),
     % turn = 1
     B2 = game:choose_attacker_card(B1),
@@ -100,6 +101,21 @@ everything_works_fine(_) ->
         % correctly check if the game has finished?
         ?_assertEqual(game:check_finished(B105), not_finished),
         ?_assertEqual(game:check_finished(B106), {finished, 1})
+    ].
+
+scenario2(_) ->
+    B1 = game:new_board(4),
+    % turn = 1
+    B2 = game:choose_attacker_card(B1),
+    {success, B3} = game:attack(B2, 2, 1, 18),
+    {success, B4} = game:attack(B3, 2, 2, 21),
+    {success, B5} = game:attack(B4, 3, 1, 1),
+    {success, B6} = game:attack(B5, 3, 2, 17),
+    [
+        ?_assert(game:has_player_lost(B4, 2)),
+        ?_assert(game:has_player_lost(B6, 3)),
+        ?_assertEqual(game:next_turn(B4), 3),
+        ?_assertEqual(game:next_turn(B6), 4)
     ].
 
 draw_N_times(Board, 0) ->
