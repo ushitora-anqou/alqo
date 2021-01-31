@@ -31,7 +31,16 @@ init([]) ->
         intensity => 0,
         period => 1
     },
-    ChildSpecs = [],
+    ChildSpecs = [
+        {
+            board_database,
+            {board_database, start_link, []},
+            transient,
+            infinity,
+            worker,
+            [board_database]
+        }
+    ],
     {ok, {SupFlags, ChildSpecs}}.
 
 %% internal functions

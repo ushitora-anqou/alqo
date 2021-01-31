@@ -3,6 +3,7 @@
     new_board/1,
     can_stay/1,
     num_players/1,
+    attacker_card/1,
     current_turn/1,
     next_turn/1,
     has_player_lost/2,
@@ -55,6 +56,8 @@ new_board(NumPlayers) when is_integer(NumPlayers), 2 =< NumPlayers, NumPlayers =
 can_stay(Board) -> Board#board.can_stay.
 
 num_players(Board) -> array:size(Board#board.hands).
+
+attacker_card(Board) -> Board#board.attacker_card.
 
 current_turn(Board) -> Board#board.turn.
 
