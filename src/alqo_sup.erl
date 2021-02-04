@@ -33,12 +33,20 @@ init([]) ->
     },
     ChildSpecs = [
         {
-            board_database,
-            {board_database, start_link, []},
+            room_database,
+            {room_database, start_link, []},
             transient,
             infinity,
             worker,
-            [board_database]
+            [room_database]
+        },
+        {
+            room_sup,
+            {room_sup, start_link, []},
+            transient,
+            infinity,
+            supervisor,
+            [room_sup]
         }
     ],
     {ok, {SupFlags, ChildSpecs}}.

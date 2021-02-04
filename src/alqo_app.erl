@@ -10,16 +10,21 @@
 -export([start/2, stop/1]).
 
 start(_StartType, _StartArgs) ->
+    cowboy_session:start(),
     Dispatch = cowboy_router:compile([
         {<<"localhost">>, [
             {<<"/room">>, room_handler, []},
-            {<<"/room/:roomid">>, inroom_handler, []}
+            {<<"/room/:roomid">>, inroom_handler, []},
+            {<<"/room/:roomid/register">>, inroom_register_handler, []}
         ]}
     ]),
     {ok, _} = cowboy:start_clear(
         hello_listener,
         [{port, 8080}],
-        #{env => #{dispatch => Dispatch}}
+        #{
+            env => #{dispatch => Dispatch},
+            middlewares => [cowboy_session, cowboy_router, cowboy_handler]
+        }
     ),
     alqo_sup:start_link().
 
