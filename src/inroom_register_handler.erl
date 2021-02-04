@@ -15,7 +15,7 @@ allowed_methods(Req, State) ->
     {[<<"POST">>], Req, State}.
 
 content_types_accepted(Req, State) ->
-    {[{{<<"application">>, <<"x-www-form-urlencoded">>, '*'}, register_user}], Req, State}.
+    {[{<<"application/json">>, register_user}], Req, State}.
 
 register_user(Req, RoomID) ->
     case room_database:get_pid(RoomID) of

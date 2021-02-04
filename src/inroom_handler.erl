@@ -41,11 +41,11 @@ room_state_to_json({not_started, RegisteredNumPlayers, NumPlayers}) ->
 room_state_to_json({playing, Board}) ->
     jsone:encode(#{
         status => <<"playing">>,
-        board => board_to_json(Board)
+        board => board_to_map(Board)
     }).
 
-board_to_json(Board) ->
-    jsone:encode(#{
+board_to_map(Board) ->
+    #{
         can_stay => game:can_stay(Board),
         current_turn => game:current_turn(Board),
         next_turn => game:next_turn(Board),
@@ -67,7 +67,7 @@ board_to_json(Board) ->
         %    {deck, C} -> #{kind => 1, card => card_tuple_to_list(C)};
         %    {hand, HI} -> #{kind => 2, index => HI}
         %end
-    }).
+    }.
 
 card_tuple_to_list({N, H}) -> [N, H];
 card_tuple_to_list(none) -> null.

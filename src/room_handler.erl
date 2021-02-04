@@ -14,17 +14,18 @@ allowed_methods(Req, State) ->
     {[<<"POST">>], Req, State}.
 
 content_types_accepted(Req, State) ->
-    {[{{<<"application">>, <<"x-www-form-urlencoded">>, '*'}, create_room}], Req, State}.
+    {[{<<"application/json">>, create_room}], Req, State}.
 
-create_room(Req, State) ->
-    {ok, [{<<"nplayers">>, NumPlayersStr}], Req2} = cowboy_req:read_urlencoded_body(Req),
-    NumPlayers = binary_to_integer(NumPlayersStr),
-    case 2 =< NumPlayers andalso NumPlayers =< 4 of
-        false ->
-            {false, Req2, State};
-        true ->
+create_room(Req0, State) ->
+    {ok, ReqData, Req} = cowboy_req:read_body(Req0),
+    case jsone:decode(ReqData) of
+        #{<<"nplayers">> := NumPlayers} when
+            is_integer(NumPlayers), 2 =< NumPlayers, NumPlayers =< 4
+        ->
             RoomID = room_database:create_room(NumPlayers),
-            {{true, <<<<"/room/">>/binary, RoomID/binary>>}, Req2, State}
+            {{true, <<<<"/room/">>/binary, RoomID/binary>>}, Req, State};
+        _ ->
+            {false, Req, State}
     end.
 
 %% Private funtions
