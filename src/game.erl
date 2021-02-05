@@ -57,7 +57,12 @@ can_stay(Board) -> Board#board.can_stay.
 
 num_players(Board) -> array:size(Board#board.hands).
 
-attacker_card(Board) -> Board#board.attacker_card.
+attacker_card(Board) ->
+    case Board#board.attacker_card of
+        undefined -> undefined;
+        {deck, #card{num = N, hidden = H}} -> {deck, {N, H}};
+        {hand, HI} -> {hand, HI}
+    end.
 
 current_turn(Board) -> Board#board.turn.
 
@@ -111,7 +116,7 @@ hand_from_others(Board = #board{}, PlayerIndex) when is_integer(PlayerIndex) ->
 get_deck_top_from_others(#board{deck = Deck}) ->
     case Deck of
         [] -> none;
-        [#card{num = N} | _] -> {N rem 2, true}
+        [#card{num = N} | _] -> N rem 2
     end.
 
 choose_attacker_card(Board = #board{deck = Deck}, HandIndex) ->

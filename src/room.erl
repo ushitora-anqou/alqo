@@ -55,11 +55,13 @@ terminate(_Reason, _RoomID) ->
 handle_call_impl(register_as_player, _From, {not_started, RegisteredNumPlayers, NumPlayers}) when
     RegisteredNumPlayers < NumPlayers
 ->
+    NewPlayerIndex = RegisteredNumPlayers + 1,
     case RegisteredNumPlayers + 1 =:= NumPlayers of
         true ->
-            {reply, {ok, playing}, {playing, game:new_board(NumPlayers)}};
+            Board = game:choose_attacker_card(game:new_board(NumPlayers)),
+            {reply, {ok, NewPlayerIndex}, {playing, Board}};
         false ->
-            {reply, {ok, not_started}, {not_started, RegisteredNumPlayers + 1, NumPlayers}}
+            {reply, {ok, NewPlayerIndex}, {not_started, RegisteredNumPlayers + 1, NumPlayers}}
     end;
 handle_call_impl(register_as_player, _From, State) ->
     {reply, {error, playing}, State};

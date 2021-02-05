@@ -26,21 +26,25 @@ create_register_get(_Config) ->
     ),
     RoomURL = hackney:location(ClientRef),
 
-    {ok, 200, RespHd1, _} = hackney:post(
+    {ok, 303, RespHd1, _} = hackney:post(
         [RoomURL, <<"/register">>],
         [{<<"Content-Type">>, <<"application/json">>}],
-        "",
-        [{follow_redirect, true}]
+        ""
     ),
-    %Pl1Cookie = dict:find(<<"set-cookie">>, RespHd1),
     {_, Pl1Cookie} = lists:keyfind(<<"set-cookie">>, 1, RespHd1),
-    %Pl1Cookie = hackney_headers:get_value(<<"set-cookie">>, RespHd1),
-    {ok, 200, _, _} = hackney:post(
+    {ok, 400, _, _} = hackney:post(
         [RoomURL, <<"/register">>],
-        [{<<"Content-Type">>, <<"application/json">>}],
+        [{<<"Content-Type">>, <<"application/json">>}, {<<"Cookie">>, Pl1Cookie}],
         "",
         [{follow_redirect, true}]
     ),
+
+    {ok, 303, RespHd2, _} = hackney:post(
+        [RoomURL, <<"/register">>],
+        [{<<"Content-Type">>, <<"application/json">>}],
+        ""
+    ),
+    {_, Pl2Cookie} = lists:keyfind(<<"set-cookie">>, 1, RespHd2),
     {ok, 200, _, _} = hackney:post(
         [RoomURL, <<"/register">>],
         [{<<"Content-Type">>, <<"application/json">>}],
@@ -66,25 +70,69 @@ create_register_get(_Config) ->
             <<"next_turn">> := 2,
             <<"num_players">> := 4,
             <<"winner">> := null,
-            <<"your_player_index">> := null,
-            <<"attacker_card">> := null
+            <<"attacker_card">> := [1, _]
         }
     } = Body1,
+    Board1 = maps:get(<<"board">>, Body1),
+    ok =
+        case
+            {maps:is_key(<<"your_player_index">>, Board1), maps:is_key(<<"your_hand">>, Board1),
+                maps:is_key(<<"your_attacker_card_from_deck">>, Board1)}
+        of
+            {false, false, false} -> ok;
+            _ -> error
+        end,
 
-    %% View from logged-in users
-    %{ok, 200, _, ClientRef2} = hackney:get(RoomURL, [{<<"Cookie">>, Pl1Cookie}], "", []),
-    %{ok, BodySrc2} = hackney:body(ClientRef2),
-    %Body2 = jsone:decode(BodySrc2),
-    %#{
-    %    <<"status">> := <<"playing">>,
-    %    <<"board">> := #{
-    %        <<"can_stay">> := false,
-    %        <<"current_turn">> := 1,
-    %        <<"next_turn">> := 2,
-    %        <<"num_players">> := 4,
-    %        <<"winner">> := null,
-    %        <<"your_player_index">> := 1,
-    %        <<"attacker_card">> := null
-    %    }
-    %} = Body2,
+    % View from logged-in user 1
+    {ok, 200, _, ClientRef2} = hackney:get(RoomURL, [{<<"Cookie">>, Pl1Cookie}], "", []),
+    {ok, BodySrc2} = hackney:body(ClientRef2),
+    Body2 = jsone:decode(BodySrc2),
+    #{
+        <<"status">> := <<"playing">>,
+        <<"board">> := #{
+            <<"can_stay">> := false,
+            <<"current_turn">> := 1,
+            <<"next_turn">> := 2,
+            <<"num_players">> := 4,
+            <<"winner">> := null,
+            <<"attacker_card">> := [1, _]
+        }
+    } = Body2,
+    case Body2 of
+        #{
+            <<"board">> := #{
+                <<"your_player_index">> := 1,
+                <<"your_hand">> := MyHand2,
+                <<"your_attacker_card_from_deck">> := MyAttackerCardFromDeck
+            }
+        } when MyHand2 =/= null, MyAttackerCardFromDeck =/= null ->
+            ok
+    end,
+
+    % View from logged-in user 2
+    {ok, 200, _, ClientRef3} = hackney:get(RoomURL, [{<<"Cookie">>, Pl2Cookie}], "", []),
+    {ok, BodySrc3} = hackney:body(ClientRef3),
+    Body3 = jsone:decode(BodySrc3),
+    #{
+        <<"status">> := <<"playing">>,
+        <<"board">> := #{
+            <<"can_stay">> := false,
+            <<"current_turn">> := 1,
+            <<"next_turn">> := 2,
+            <<"num_players">> := 4,
+            <<"winner">> := null,
+            <<"attacker_card">> := [1, _]
+        }
+    } = Body3,
+    case Body3 of
+        #{
+            <<"board">> := #{
+                <<"your_player_index">> := 2,
+                <<"your_hand">> := MyHand3,
+                <<"your_attacker_card_from_deck">> := null
+            }
+        } when MyHand3 =/= null ->
+            ok
+    end,
+
     ok.

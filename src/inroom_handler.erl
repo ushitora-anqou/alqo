@@ -22,30 +22,36 @@ resource_exists(Req, RoomID) ->
     Exists =
         case room_database:get_pid(RoomID) of
             undefined -> false;
-            Pid -> true
+            _Pid -> true
         end,
     {Exists, Req, RoomID}.
 
 current_room_json(Req, RoomID) ->
     RoomState = room_database:get_current_state(RoomID),
-    Body = room_state_to_json(RoomState),
-    {Body, Req, RoomID}.
+    {PlayerIndex, Req1} = cowboy_session:get({player_index, RoomID}, Req),
+    Body = room_state_to_json(RoomState, PlayerIndex),
+    {Body, Req1, RoomID}.
 
 %% Private functions
-room_state_to_json({not_started, RegisteredNumPlayers, NumPlayers}) ->
+room_state_to_json({not_started, RegisteredNumPlayers, NumPlayers}, PlayerIndex) ->
     jsone:encode(#{
         status => <<"not_started">>,
         registered => RegisteredNumPlayers,
-        nplayers => NumPlayers
+        nplayers => NumPlayers,
+        your_status =>
+            case PlayerIndex of
+                undefined -> false;
+                _ -> true
+            end
     });
-room_state_to_json({playing, Board}) ->
+room_state_to_json({playing, Board}, PlayerIndex) ->
     jsone:encode(#{
         status => <<"playing">>,
-        board => board_to_map(Board)
+        board => board_to_map(Board, PlayerIndex)
     }).
 
-board_to_map(Board) ->
-    #{
+board_to_map(Board, PlayerIndex) ->
+    Map = #{
         can_stay => game:can_stay(Board),
         current_turn => game:current_turn(Board),
         next_turn => game:next_turn(Board),
@@ -55,19 +61,32 @@ board_to_map(Board) ->
                 not_finished -> null;
                 {finished, Winner} -> Winner
             end,
-        your_player_index => null,
         hands => [
-            [card_tuple_to_list(T) || T <- game:hand_from_others(Board, PI)]
+            [[N, H] || {N, H} <- game:hand_from_others(Board, PI)]
             || PI <- lists:seq(1, game:num_players(Board))
         ],
-        deck_top => card_tuple_to_list(game:get_deck_top_from_others(Board)),
-        attacker_card => null
-        %case game:attacker_card(Board) of
-        %    undefined -> null;
-        %    {deck, C} -> #{kind => 1, card => card_tuple_to_list(C)};
-        %    {hand, HI} -> #{kind => 2, index => HI}
-        %end
-    }.
+        deck_top => game:get_deck_top_from_others(Board),
+        attacker_card =>
+            case game:attacker_card(Board) of
+                undefined -> null;
+                {deck, {N, _H}} -> [1, N];
+                {hand, HI} -> [2, HI]
+            end
+    },
+    case PlayerIndex of
+        undefined ->
+            Map;
+        PI ->
+            Map#{
+                your_player_index => PI,
+                your_hand => [N || {N, _H} <- game:hand(Board, PI)],
+                your_attacker_card_from_deck =>
+                    case {game:current_turn(Board), game:attacker_card(Board)} of
+                        {Turn, {deck, C}} when Turn =:= PI -> card_tuple_to_list(C);
+                        _ -> null
+                    end
+            }
+    end.
 
 card_tuple_to_list({N, H}) -> [N, H];
 card_tuple_to_list(none) -> null.

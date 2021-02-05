@@ -18,14 +18,17 @@ content_types_accepted(Req, State) ->
     {[{<<"application/json">>, register_user}], Req, State}.
 
 register_user(Req, RoomID) ->
-    case room_database:get_pid(RoomID) of
-        undefined ->
-            {false, Req, RoomID};
-        Pid ->
+    case {cowboy_session:get({player_index, RoomID}, Req), room_database:get_pid(RoomID)} of
+        {{_, Req1}, undefined} ->
+            {false, Req1, RoomID};
+        {{undefined, Req1}, Pid} ->
             case room:register_as_player(Pid) of
-                {ok, _} ->
-                    {{true, <<<<"/room/">>/binary, RoomID/binary>>}, Req, RoomID};
+                {ok, PlayerIndex} ->
+                    {ok, Req2} = cowboy_session:set({player_index, RoomID}, PlayerIndex, Req1),
+                    {{true, <<<<"/room/">>/binary, RoomID/binary>>}, Req2, RoomID};
                 {error, _} ->
-                    {false, Req, RoomID}
-            end
+                    {false, Req1, RoomID}
+            end;
+        {{_, Req1}, _} ->
+            {false, Req1, RoomID}
     end.
