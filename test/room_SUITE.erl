@@ -26,7 +26,7 @@ create_register_get(_Config) ->
     ),
     RoomURL = hackney:location(ClientRef),
 
-    {ok, 303, RespHd1, _} = hackney:post(
+    {ok, 201, RespHd1, _} = hackney:post(
         [RoomURL, <<"/register">>],
         [{<<"Content-Type">>, <<"application/json">>}],
         ""
@@ -35,27 +35,29 @@ create_register_get(_Config) ->
     {ok, 400, _, _} = hackney:post(
         [RoomURL, <<"/register">>],
         [{<<"Content-Type">>, <<"application/json">>}, {<<"Cookie">>, Pl1Cookie}],
-        "",
-        [{follow_redirect, true}]
+        ""
     ),
 
-    {ok, 303, RespHd2, _} = hackney:post(
+    {ok, 201, RespHd2, _} = hackney:post(
         [RoomURL, <<"/register">>],
         [{<<"Content-Type">>, <<"application/json">>}],
         ""
     ),
     {_, Pl2Cookie} = lists:keyfind(<<"set-cookie">>, 1, RespHd2),
-    {ok, 200, _, _} = hackney:post(
+    {ok, 201, _, _} = hackney:post(
         [RoomURL, <<"/register">>],
         [{<<"Content-Type">>, <<"application/json">>}],
-        "",
-        [{follow_redirect, true}]
+        ""
     ),
-    {ok, 200, _, _} = hackney:post(
+    {ok, 201, _, _} = hackney:post(
         [RoomURL, <<"/register">>],
         [{<<"Content-Type">>, <<"application/json">>}],
-        "",
-        [{follow_redirect, true}]
+        ""
+    ),
+    {ok, 400, _, _} = hackney:post(
+        [RoomURL, <<"/register">>],
+        [{<<"Content-Type">>, <<"application/json">>}],
+        ""
     ),
 
     % View from not logged-in users

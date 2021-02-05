@@ -4,7 +4,8 @@
     init/2,
     allowed_methods/2,
     content_types_accepted/2,
-    register_user/2
+    register_user/2,
+    resource_exists/2
 ]).
 
 init(Req, _State) ->
@@ -13,6 +14,10 @@ init(Req, _State) ->
 
 allowed_methods(Req, State) ->
     {[<<"POST">>], Req, State}.
+
+resource_exists(Req, State) ->
+    % For 201 Created
+    {false, Req, State}.
 
 content_types_accepted(Req, State) ->
     {[{<<"application/json">>, register_user}], Req, State}.
