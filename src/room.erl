@@ -1,7 +1,7 @@
 -module(room).
 -behaviour(gen_server).
 
--export([start_link/1, register_as_player/1, get_board/1, initial_state/1]).
+-export([start_link/1, register_as_player/1, get_board/1, initial_state/1, attack/5]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
 -type state() :: {not_started, integer(), integer()} | {playing, any()}.
@@ -14,6 +14,9 @@ register_as_player(Pid) ->
 
 get_board(Pid) ->
     gen_server:call(Pid, get_board).
+
+attack(Pid, PlayerIndex, TargetPlayer, TargetIndex, Guess) ->
+    gen_server:call(Pid, {attack, PlayerIndex, TargetPlayer, TargetIndex, Guess}).
 
 -spec initial_state(integer()) -> state().
 initial_state(NumPlayers) ->
@@ -65,9 +68,37 @@ handle_call_impl(register_as_player, _From, {not_started, RegisteredNumPlayers, 
     end;
 handle_call_impl(register_as_player, _From, State) ->
     {reply, {error, playing}, State};
+%
 handle_call_impl(get_board, _From, {playing, Board}) ->
     {reply, {ok, Board}, {playing, Board}};
 handle_call_impl(get_board, _From, State) ->
     {reply, {error, not_started}, State};
+%
+handle_call_impl({attack, PlayerIndex, TargetPlayer, TargetIndex, Guess}, _From, {playing, Board}) ->
+    case PlayerIndex =:= game:current_turn(Board) of
+        false ->
+            {reply, {error, not_current_turn}, {playing, Board}};
+        true ->
+            try
+                {Result, Board1} = game:attack(Board, TargetPlayer, TargetIndex, Guess),
+                Board2 =
+                    case {game:attacker_card(Board1), game:get_deck_top_from_others(Board1)} of
+                        {undefined, none} ->
+                            % Need explicitly choosing
+                            Board1;
+                        {undefined, _} ->
+                            game:choose_attacker_card(Board1);
+                        _ ->
+                            Board1
+                    end,
+                {reply, {ok, Result}, {playing, Board2}}
+            catch
+                error:Reason ->
+                    {reply, {error, Reason}, {playing, Board}}
+            end
+    end;
+handle_call_impl(attack, _From, State) ->
+    {reply, {error, not_started}, State};
+%
 handle_call_impl(_Event, _From, State) ->
     {noreply, State}.

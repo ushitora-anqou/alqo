@@ -3,7 +3,7 @@
 
 all() -> [{group, session}].
 
-groups() -> [{session, [], [create_register_get]}].
+groups() -> [{session, [parallel, {repeat, 10}], [create_register_get, attack_success_failure]}].
 
 init_per_group(session, Config) ->
     application:ensure_all_started(alqo),
@@ -138,3 +138,112 @@ create_register_get(_Config) ->
     end,
 
     ok.
+
+attack_success_failure(_Config) ->
+    {ok, 200, _, ClientRef} = hackney:post(
+        "http://localhost:8080/room",
+        [{<<"Content-Type">>, <<"application/json">>}],
+        jsone:encode(#{nplayers => 4}),
+        [{follow_redirect, true}]
+    ),
+    RoomURL = hackney:location(ClientRef),
+    AttackURL = [RoomURL, <<"/attack">>],
+
+    Pl1Cookie = register_as_player(RoomURL),
+    Pl2Cookie = register_as_player(RoomURL),
+    Pl3Cookie = register_as_player(RoomURL),
+    Pl4Cookie = register_as_player(RoomURL),
+
+    % Can't attack the player of the current turn.
+    {ok, 400, _, _} = request(
+        post,
+        AttackURL,
+        jsone:encode(#{
+            target_player => 1,
+            target_index => 1,
+            guess => 1
+        }),
+        Pl1Cookie,
+        []
+    ),
+
+    CardNum2_1 = get_hand_of(RoomURL, Pl2Cookie, 1),
+    CardNum3_1 = get_hand_of(RoomURL, Pl3Cookie, 1),
+    CardNum3_2 = get_hand_of(RoomURL, Pl3Cookie, 2),
+    CardNum4_1 = get_hand_of(RoomURL, Pl4Cookie, 1),
+    CardNum4_2 = get_hand_of(RoomURL, Pl4Cookie, 2),
+    % Attack success
+    #{<<"result">> := true} = attack(RoomURL, Pl1Cookie, 3, 1, CardNum3_1),
+    % Attack failure
+    #{<<"result">> := false} = attack(RoomURL, Pl1Cookie, 2, 1, card_different_from(CardNum2_1)),
+
+    % Can't attack already opened card.
+    {ok, 400, _, _} = request(
+        post,
+        AttackURL,
+        jsone:encode(#{
+            target_player => 3,
+            target_index => 1,
+            guess => CardNum3_1
+        }),
+        Pl2Cookie,
+        []
+    ),
+
+    % Attack success
+    #{<<"result">> := true} = attack(RoomURL, Pl2Cookie, 4, 1, CardNum4_1),
+    % Attack success and player 3 lost.
+    #{<<"result">> := true} = attack(RoomURL, Pl2Cookie, 3, 2, CardNum3_2),
+    % Attack failure
+    #{<<"result">> := false} = attack(RoomURL, Pl2Cookie, 4, 2, card_different_from(CardNum4_2)),
+    % The next turn is 4, not 3
+    #{<<"board">> := #{<<"current_turn">> := 4}} = get_room_state(RoomURL, Pl3Cookie),
+
+    ok.
+
+%% Helper functions
+register_as_player(RoomURL) ->
+    {ok, 201, RespHd, _} = hackney:post(
+        [RoomURL, <<"/register">>],
+        [{<<"Content-Type">>, <<"application/json">>}],
+        ""
+    ),
+    {_, Cookie} = lists:keyfind(<<"set-cookie">>, 1, RespHd),
+    Cookie.
+
+request(Method, URL, Payload, Cookie, Options) ->
+    hackney:request(
+        Method,
+        URL,
+        [{<<"Content-Type">>, <<"application/json">>}, {<<"Cookie">>, Cookie}],
+        Payload,
+        Options
+    ).
+
+get_room_state(RoomURL, Cookie) ->
+    %{ok, 200, _, ClientRef} = hackney:get(RoomURL, [{<<"Cookie">>, Cookie}], "", []),
+    {ok, 200, _, ClientRef} = request(get, RoomURL, "", Cookie, []),
+    {ok, Body} = hackney:body(ClientRef),
+    jsone:decode(Body).
+
+attack(RoomURL, Cookie, TargetPlayer, TargetIndex, Guess) ->
+    {ok, 200, _, ClientRef} = request(
+        post,
+        [RoomURL, <<"/attack">>],
+        jsone:encode(#{
+            target_player => TargetPlayer,
+            target_index => TargetIndex,
+            guess => Guess
+        }),
+        Cookie,
+        []
+    ),
+    {ok, Body} = hackney:body(ClientRef),
+    jsone:decode(Body).
+
+get_hand_of(RoomURL, Cookie, HandIndex) ->
+    #{<<"board">> := #{<<"your_hand">> := Hand}} = get_room_state(RoomURL, Cookie),
+    lists:nth(HandIndex, Hand).
+
+card_different_from(23) -> 0;
+card_different_from(N) -> N + 1.
