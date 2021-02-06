@@ -67,7 +67,7 @@ handle_call({create, RoomState}, _From, State) ->
 handle_call({set_pid, RoomID, RoomPid}, _From, State) ->
     case ets:lookup(State, RoomID) of
         [] ->
-            error(room_not_found);
+            throw(room_not_found);
         [#room{pid = RoomPid}] ->
             % The same process; ok.
             {reply, ok, State};
@@ -82,7 +82,7 @@ handle_call({set_pid, RoomID, RoomPid}, _From, State) ->
 handle_call({set_current_state, RoomID, RoomPid, RoomNewState}, _From, State) ->
     case ets:lookup(State, RoomID) of
         [] ->
-            error(room_not_found);
+            throw(room_not_found);
         [Room = #room{pid = RoomPid}] ->
             % Correct process; ok.
             ets:insert(State, Room#room{state = RoomNewState}),
@@ -107,7 +107,7 @@ handle_info({'DOWN', RoomRef, process, RoomPid, _Reason}, State) ->
     end),
     case ets:select(State, MatchSpec) of
         [] ->
-            error(room_not_found);
+            throw(room_not_found);
         [Room = #room{}] ->
             ets:insert(State, Room#room{pid = undefined, ref = undefined})
     end,

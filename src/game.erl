@@ -69,7 +69,7 @@ current_turn(Board) -> Board#board.turn.
 next_turn(Board = #board{}) ->
     case check_finished(Board) of
         {finished, _} ->
-            erlang:error(game_already_finished);
+            throw(game_already_finished);
         not_finished ->
             NumPlayers = num_players(Board),
             Can1 = Board#board.turn rem num_players(Board) + 1,
@@ -129,7 +129,7 @@ choose_attacker_card(Board = #board{deck = Deck}, HandIndex) ->
             % The chosen card should be hidden.
             C = get_hand(Board, current_turn(Board), HandIndex),
             case C#card.hidden of
-                false -> erlang:error(invalid_card_state);
+                false -> throw(invalid_card_state);
                 true -> Board#board{attacker_card = {hand, HandIndex}}
             end
     end.
@@ -142,12 +142,12 @@ check_attack(Board, TargetPlayer, TargetIndex, Guess) when
 ->
     case {Board, TargetPlayer =:= current_turn(Board)} of
         {#board{attacker_card = undefined}, _} ->
-            erlang:error(attacker_card_not_set);
+            throw(attacker_card_not_set);
         {_, true} ->
-            erlang:error(invalid_player_index);
+            throw(invalid_player_index);
         _ ->
             case get_hand(Board, TargetPlayer, TargetIndex) of
-                #card{hidden = false} -> erlang:error(invalid_card_state);
+                #card{hidden = false} -> throw(invalid_card_state);
                 #card{hidden = true, num = Guess} -> success;
                 _ -> failure
             end
@@ -195,7 +195,7 @@ stay(Board = #board{can_stay = true}) ->
         can_stay = false
     };
 stay(#board{can_stay = false}) ->
-    erlang:error(cannot_stay).
+    throw(cannot_stay).
 
 %%% private functions
 shuffle_list(L) when is_list(L) ->
@@ -205,7 +205,7 @@ shuffle_list(L) when is_list(L) ->
 get_hand(Board = #board{hands = Hands}, PlayerIndex) ->
     case 1 =< PlayerIndex andalso PlayerIndex =< num_players(Board) of
         false ->
-            erlang:error(invalid_player_index);
+            throw(invalid_player_index);
         true ->
             array:get(PlayerIndex - 1, Hands)
     end.
@@ -213,7 +213,7 @@ get_hand(Board = #board{hands = Hands}, PlayerIndex) ->
 get_hand(Board = #board{}, PlayerIndex, HandIndex) ->
     Hand = get_hand(Board, PlayerIndex),
     case 1 =< HandIndex andalso HandIndex =< array:size(Hand) of
-        false -> erlang:error(invalid_hand_index);
+        false -> throw(invalid_hand_index);
         true -> array:get(HandIndex - 1, Hand)
     end.
 
@@ -230,7 +230,7 @@ reveal_hand(Board = #board{}, PlayerIndex, HandIndex) ->
     OldCard = get_hand(Board, PlayerIndex, HandIndex),
     case OldCard of
         #card{hidden = false} ->
-            erlang:error(invalid_card_state);
+            throw(invalid_card_state);
         _ ->
             NewCard = OldCard#card{hidden = false},
             set_hand(Board, PlayerIndex, HandIndex, NewCard)

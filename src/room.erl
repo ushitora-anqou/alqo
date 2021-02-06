@@ -93,7 +93,7 @@ handle_call_impl({attack, PlayerIndex, TargetPlayer, TargetIndex, Guess}, _From,
                     end,
                 {reply, {ok, Result}, {playing, Board2}}
             catch
-                error:Reason ->
+                throw:Reason ->
                     {reply, {error, Reason}, {playing, Board}}
             end
     end;
