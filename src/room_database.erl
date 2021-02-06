@@ -1,7 +1,5 @@
 -module(room_database).
--include_lib("stdlib/include/ms_transform.hrl").
 -behaviour(gen_server).
-
 -export([
     start_link/0,
     stop/0,
@@ -13,13 +11,6 @@
 ]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
--record(room, {
-    roomid :: binary(),
-    pid :: pid() | undefined,
-    ref :: reference() | undefined,
-    state :: any()
-}).
-
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
@@ -30,68 +21,38 @@ create_room(NumPlayers) ->
     InitialRoomState = room:initial_state(NumPlayers),
     gen_server:call(?MODULE, {create, InitialRoomState}).
 
-% may return undefined
 get_pid(RoomID) ->
-    case ets:lookup(?MODULE, RoomID) of
-        [] -> undefined;
-        [#room{pid = Pid}] -> Pid
-    end.
+    gproc:lookup_pid(gproc_room_id(RoomID)).
 
 set_pid(RoomID) ->
-    gen_server:call(?MODULE, {set_pid, RoomID, self()}).
+    gproc:reg(gproc_room_id(RoomID)).
 
 get_current_state(RoomID) ->
     case ets:lookup(?MODULE, RoomID) of
         [] -> undefined;
-        [#room{state = State}] -> State
+        [{_, State}] -> State
     end.
 
-set_current_state(RoomID, NewState) ->
-    gen_server:call(?MODULE, {set_current_state, RoomID, self(), NewState}).
+set_current_state(RoomID, RoomNewState) ->
+    gen_server:call(?MODULE, {set_current_state, RoomID, RoomNewState}).
 
-%%% GEN_SERVER CALLBACKS
-init([]) ->
-    ?MODULE = ets:new(?MODULE, [set, named_table, protected, {keypos, #room.roomid}]),
+%% GEN_SERVER CALLBACKS
+init(_) ->
+    ?MODULE = ets:new(?MODULE, [set, named_table, protected]),
     {ok, ?MODULE}.
 
 handle_call({create, RoomState}, _From, State) ->
     RoomID = list_to_binary(uuid:uuid_to_string(uuid:get_v4(), nodash)),
-    room_sup:create_room(RoomID),
-    % Event set_pid will come only after event create is done.
     % XXX assume RoomID does not duplicate
-    true = ets:insert_new(
-        State,
-        #room{roomid = RoomID, pid = undefined, ref = undefined, state = RoomState}
-    ),
+    true = ets:insert_new(?MODULE, {RoomID, RoomState}),
+    % Room should be created AFTER room state is set
+    room_sup:create_room(RoomID),
     {reply, RoomID, State};
-handle_call({set_pid, RoomID, RoomPid}, _From, State) ->
-    case ets:lookup(State, RoomID) of
-        [] ->
-            throw(room_not_found);
-        [#room{pid = RoomPid}] ->
-            % The same process; ok.
-            {reply, ok, State};
-        [Room = #room{pid = undefined, ref = undefined}] ->
-            % not associated with room process yet; ok.
-            RoomRef = monitor(process, RoomPid),
-            ets:insert(State, Room#room{pid = RoomPid, ref = RoomRef}),
-            {reply, ok, State};
-        _ ->
-            error(room_process_duplicate)
-    end;
-handle_call({set_current_state, RoomID, RoomPid, RoomNewState}, _From, State) ->
-    case ets:lookup(State, RoomID) of
-        [] ->
-            throw(room_not_found);
-        [Room = #room{pid = RoomPid}] ->
-            % Correct process; ok.
-            ets:insert(State, Room#room{state = RoomNewState}),
-            {reply, ok, State};
-        _ ->
-            error(invalid_process_setting_state)
-    end;
+handle_call({set_current_state, RoomID, RoomNewState}, _From, State) ->
+    ets:insert(?MODULE, {RoomID, RoomNewState}),
+    {reply, ok, State};
 handle_call(stop, _From, State) ->
-    ets:delete(State),
+    ets:delete(?MODULE),
     {stop, normal, ok, State};
 handle_call(_Event, _From, State) ->
     {noreply, State}.
@@ -99,18 +60,7 @@ handle_call(_Event, _From, State) ->
 handle_cast(_Event, State) ->
     {noreply, State}.
 
-handle_info({'DOWN', RoomRef, process, RoomPid, _Reason}, State) ->
-    MatchSpec = ets:fun2ms(fun(Room = #room{}) when
-        RoomPid =:= Room#room.pid, RoomRef =:= Room#room.ref
-    ->
-        Room
-    end),
-    case ets:select(State, MatchSpec) of
-        [] ->
-            throw(room_not_found);
-        [Room = #room{}] ->
-            ets:insert(State, Room#room{pid = undefined, ref = undefined})
-    end,
+handle_info(_Event, State) ->
     {noreply, State}.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -118,3 +68,8 @@ code_change(_OldVsn, State, _Extra) ->
 
 terminate(_Reason, _State) ->
     ok.
+
+%% Internal functions
+
+gproc_room_id(RoomID) ->
+    {n, l, {alqo_room, RoomID}}.
