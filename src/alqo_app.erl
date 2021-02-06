@@ -15,6 +15,7 @@ start(_StartType, _StartArgs) ->
         {<<"localhost">>, [
             {<<"/room">>, room_handler, []},
             {<<"/room/:roomid">>, inroom_handler, []},
+            {<<"/room/:roomid/ws">>, ws_room, []},
             {<<"/room/:roomid/register">>, inroom_register_handler, []},
             {<<"/room/:roomid/attack">>, inroom_attack_handler, []}
         ]}

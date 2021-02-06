@@ -3,11 +3,19 @@
 
 all() -> [{group, session}].
 
-groups() -> [{session, [parallel, {repeat, 10}], [create_register_get, attack_success_failure]}].
+groups() ->
+    [
+        {session, [parallel, {repeat, 10}], [
+            create_register_get,
+            attack_success_failure,
+            websocket_scenario
+        ]}
+    ].
 
 init_per_group(session, Config) ->
     application:ensure_all_started(alqo),
     application:ensure_all_started(hackney),
+    application:ensure_all_started(gun),
     Config;
 init_per_group(_, Config) ->
     Config.
@@ -201,7 +209,54 @@ attack_success_failure(_Config) ->
 
     ok.
 
+websocket_scenario(_Config) ->
+    RoomURL = create_room(2),
+    {ok, ConnPid} = gun:open("localhost", 8080),
+    {ok, _Protocol} = gun:await_up(ConnPid),
+    gun:ws_upgrade(ConnPid, [RoomURL, <<"/ws">>]),
+    receive
+        {gun_upgrade, _ConnPid, _StreamRef, [<<"websocket">>], _Headers} ->
+            ok
+    end,
+    % Connection established
+
+    %Pl1Cookie = register_as_player(RoomURL),
+    %case ws_wait_json() of
+    %    [
+    %        <<"player-registered">>,
+    %        #{<<"registered">> := 1, <<"num_players">> := 2}
+    %    ] ->
+    %        ok
+    %end,
+    %Pl2Cookie = register_as_player(RoomURL),
+    %case ws_wait_json() of
+    %    [
+    %        <<"player-registered">>,
+    %        #{<<"registered">> := 2, <<"num_players">> := 2}
+    %    ] ->
+    %        ok
+    %end,
+
+    ok.
+
 %% Helper functions
+ws_wait_json() ->
+    receive
+        {gun_ws, _ConnPid, _StreamRef, {text, Msg}} ->
+            jsone:decode(Msg)
+    after 5000 -> erlang:error(timeout)
+    end.
+
+create_room(NumPlayers) ->
+    {ok, 200, _, ClientRef} = hackney:post(
+        "http://localhost:8080/room",
+        [{<<"Content-Type">>, <<"application/json">>}],
+        jsone:encode(#{nplayers => NumPlayers}),
+        [{follow_redirect, true}]
+    ),
+    RoomURL = hackney:location(ClientRef),
+    RoomURL.
+
 register_as_player(RoomURL) ->
     {ok, 201, RespHd, _} = hackney:post(
         [RoomURL, <<"/register">>],
