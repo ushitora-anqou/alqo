@@ -8,7 +8,8 @@ groups() ->
         {session, [parallel, {repeat, 10}], [
             create_register_get,
             attack_success_failure,
-            websocket_scenario
+            websocket_scenario,
+            when_room_died
         ]}
     ].
 
@@ -24,6 +25,23 @@ end_per_group(session, _Config) ->
     ok;
 end_per_group(_, _Config) ->
     ok.
+
+when_room_died(_Config) ->
+    %% XXX test without sleep?
+    RoomID = room_database:create_room(4),
+    timer:sleep(10),
+    ok =
+        case room_database:get_pid(RoomID) of
+            undefined ->
+                error;
+            Pid ->
+                exit(Pid, kill),
+                timer:sleep(10),
+                case room_database:get_pid(RoomID) of
+                    undefined -> error;
+                    NewPid when NewPid =/= Pid -> ok
+                end
+        end.
 
 create_register_get(_Config) ->
     {ok, 200, _, ClientRef} = hackney:post(

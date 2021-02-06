@@ -22,7 +22,7 @@ create_room(NumPlayers) ->
     gen_server:call(?MODULE, {create, InitialRoomState}).
 
 get_pid(RoomID) ->
-    gproc:lookup_pid(gproc_room_id(RoomID)).
+    gproc:where(gproc_room_id(RoomID)).
 
 set_pid(RoomID) ->
     gproc:reg(gproc_room_id(RoomID)).

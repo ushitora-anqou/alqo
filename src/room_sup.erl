@@ -12,6 +12,6 @@ create_room(NumPlayers) ->
 
 init([]) ->
     {ok,
-        {{simple_one_for_one, 0, 1}, [
+        {{simple_one_for_one, 10, 60}, [
             {room, {room, start_link, []}, transient, infinity, worker, [room]}
         ]}}.
