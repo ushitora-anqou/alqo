@@ -22,7 +22,9 @@ init_per_group(_, Config) ->
     Config.
 
 end_per_group(session, _Config) ->
-    ok;
+    application:stop(hackney),
+    application:stop(gun),
+    application:stop(alqo);
 end_per_group(_, _Config) ->
     ok.
 
@@ -238,22 +240,16 @@ websocket_scenario(_Config) ->
     end,
     % Connection established
 
-    %Pl1Cookie = register_as_player(RoomURL),
-    %case ws_wait_json() of
-    %    [
-    %        <<"player-registered">>,
-    %        #{<<"registered">> := 1, <<"num_players">> := 2}
-    %    ] ->
-    %        ok
-    %end,
-    %Pl2Cookie = register_as_player(RoomURL),
-    %case ws_wait_json() of
-    %    [
-    %        <<"player-registered">>,
-    %        #{<<"registered">> := 2, <<"num_players">> := 2}
-    %    ] ->
-    %        ok
-    %end,
+    Pl1Cookie = register_as_player(RoomURL),
+    case ws_wait_json() of
+        [<<"player_registered">>, 1] ->
+            ok
+    end,
+    Pl2Cookie = register_as_player(RoomURL),
+    case ws_wait_json() of
+        [<<"player_registered">>, 2] ->
+            ok
+    end,
 
     ok.
 

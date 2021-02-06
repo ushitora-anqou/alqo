@@ -4,15 +4,16 @@
 init(Req, _State) ->
     RoomID = cowboy_req:binding(roomid, Req),
     {PlayerIndex, Req1} = cowboy_session:get({player_index, RoomID}, Req),
-    {cowboy_websocket, Req1, {PlayerIndex, RoomID}}.
+    {cowboy_websocket, Req1, {RoomID, PlayerIndex}}.
 
-websocket_init(State) ->
+websocket_init(State = {RoomID, PlayerIndex}) ->
+    room_database:set_ws_pid(RoomID, PlayerIndex),
     {[], State}.
 
-%websocket_handle({text, Msg}, State) ->
-%    {[{text, <<"Hello", Msg/binary>>}], State};
 websocket_handle(_Data, State) ->
     {[], State}.
 
+websocket_info({player_registered, PlayerIndex}, State) ->
+    {[{text, jsone:encode([<<"player_registered">>, PlayerIndex])}], State};
 websocket_info(_Info, State) ->
     {[], State}.
