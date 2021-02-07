@@ -10,7 +10,8 @@ groups() ->
             attack_success_failure,
             websocket_observers,
             when_room_died,
-            game_finished_winner
+            game_finished_winner,
+            attack_and_stay
         ]}
     ].
 
@@ -47,13 +48,7 @@ when_room_died(_Config) ->
         end.
 
 create_register_get(_Config) ->
-    {ok, 200, _, ClientRef} = hackney:post(
-        "http://localhost:8080/room",
-        [{<<"Content-Type">>, <<"application/json">>}],
-        jsone:encode(#{nplayers => 4}),
-        [{follow_redirect, true}]
-    ),
-    RoomURL = hackney:location(ClientRef),
+    RoomURL = create_room(4),
 
     {ok, 201, RespHd1, _} = hackney:post(
         [RoomURL, <<"/register">>],
@@ -171,13 +166,7 @@ create_register_get(_Config) ->
     ok.
 
 attack_success_failure(_Config) ->
-    {ok, 200, _, ClientRef} = hackney:post(
-        "http://localhost:8080/room",
-        [{<<"Content-Type">>, <<"application/json">>}],
-        jsone:encode(#{nplayers => 4}),
-        [{follow_redirect, true}]
-    ),
-    RoomURL = hackney:location(ClientRef),
+    RoomURL = create_room(4),
     AttackURL = [RoomURL, <<"/attack">>],
 
     Pl1Cookie = register_as_player(RoomURL),
@@ -233,13 +222,7 @@ attack_success_failure(_Config) ->
     ok.
 
 game_finished_winner(_Config) ->
-    {ok, 200, _, ClientRef} = hackney:post(
-        "http://localhost:8080/room",
-        [{<<"Content-Type">>, <<"application/json">>}],
-        jsone:encode(#{nplayers => 2}),
-        [{follow_redirect, true}]
-    ),
-    RoomURL = hackney:location(ClientRef),
+    RoomURL = create_room(2),
 
     Pl1Cookie = register_as_player(RoomURL),
     Pl2Cookie = register_as_player(RoomURL),
@@ -257,6 +240,28 @@ game_finished_winner(_Config) ->
     #{
         <<"board">> := #{
             <<"winner">> := 1
+        }
+    } = get_room_state(RoomURL),
+
+    ok.
+
+attack_and_stay(_Config) ->
+    RoomURL = create_room(2),
+    StayURL = [RoomURL, <<"/stay">>],
+    Pl1Cookie = register_as_player(RoomURL),
+    Pl2Cookie = register_as_player(RoomURL),
+    CardNum2_1 = get_hand_of(RoomURL, Pl2Cookie, 1),
+
+    % Can't stay unless attack succeeds at least once
+    {ok, 400, _, _} = request(post, StayURL, "", Pl1Cookie, []),
+
+    #{<<"result">> := true} = attack(RoomURL, Pl1Cookie, 2, 1, CardNum2_1),
+    % Stay success
+    #{<<"result">> := true} = stay(RoomURL, Pl1Cookie),
+
+    #{
+        <<"board">> := #{
+            <<"current_turn">> := 2
         }
     } = get_room_state(RoomURL),
 
@@ -405,6 +410,17 @@ attack(RoomURL, Cookie, TargetPlayer, TargetIndex, Guess) ->
             target_index => TargetIndex,
             guess => Guess
         }),
+        Cookie,
+        []
+    ),
+    {ok, Body} = hackney:body(ClientRef),
+    jsone:decode(Body).
+
+stay(RoomURL, Cookie) ->
+    {ok, 200, _, ClientRef} = request(
+        post,
+        [RoomURL, <<"/stay">>],
+        "",
         Cookie,
         []
     ),

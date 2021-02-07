@@ -1,7 +1,7 @@
 -module(room).
 -behaviour(gen_server).
 
--export([start_link/1, register_as_player/1, get_board/1, initial_state/1, attack/5]).
+-export([start_link/1, register_as_player/1, get_board/1, initial_state/1, attack/5, stay/2]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
 -type state() :: {not_started, integer(), integer()} | {playing, any()}.
@@ -17,6 +17,9 @@ get_board(Pid) ->
 
 attack(Pid, PlayerIndex, TargetPlayer, TargetIndex, Guess) ->
     gen_server:call(Pid, {attack, PlayerIndex, TargetPlayer, TargetIndex, Guess}).
+
+stay(Pid, PlayerIndex) ->
+    gen_server:call(Pid, {stay, PlayerIndex}).
 
 -spec initial_state(integer()) -> state().
 initial_state(NumPlayers) ->
@@ -91,16 +94,7 @@ handle_call_impl(
         true ->
             try
                 {Result, Board1} = game:attack(Board, TargetPlayer, TargetIndex, Guess),
-                Board2 =
-                    case {game:attacker_card(Board1), game:get_deck_top_from_others(Board1)} of
-                        {undefined, undefined} ->
-                            % Need explicitly choosing
-                            Board1;
-                        {undefined, _} ->
-                            game:choose_attacker_card(Board1);
-                        _ ->
-                            Board1
-                    end,
+                Board2 = choose_attacker_card_if_possible(Board1),
 
                 % Send attacked event
                 room_database:ws_send_to_all_in_room(
@@ -122,8 +116,44 @@ handle_call_impl(
                     {reply, {error, Reason}, {playing, Board}}
             end
     end;
-handle_call_impl(attack, _From, _RoomID, State) ->
+handle_call_impl({attack, _, _, _, _}, _From, _RoomID, State) ->
     {reply, {error, not_started}, State};
 %
+handle_call_impl({stay, PlayerIndex}, _From, RoomID, {playing, Board}) ->
+    case {PlayerIndex =:= game:current_turn(Board), game:can_stay(Board)} of
+        {false, _} ->
+            {reply, {error, not_current_turn}, {playing, Board}};
+        {_, false} ->
+            {reply, {error, cannot_stay}, {playing, Board}};
+        _ ->
+            Board1 = game:stay(Board),
+            Board2 = choose_attacker_card_if_possible(Board1),
+
+            % Send stayed event
+            room_database:ws_send_to_all_in_room(RoomID, {stayed, Board2}),
+
+            {reply, ok, {playing, Board2}}
+    end;
+handle_call_impl({stay, _}, _From, _RoomID, State) ->
+    {reply, {error, not_started}, State};
 handle_call_impl(_Event, _From, _RoomID, State) ->
     {noreply, State}.
+
+choose_attacker_card_if_possible(Board) ->
+    case {game:attacker_card(Board), game:get_deck_top_from_others(Board)} of
+        {undefined, undefined} ->
+            % Need explicitly choosing
+            Board;
+        {undefined, _} ->
+            game:choose_attacker_card(Board);
+        _ ->
+            Board
+    end.
+
+state_has_finished({playing, Board}) ->
+    case game:check_finished(Board) of
+        not_finished -> false;
+        _ -> true
+    end;
+state_has_finished(_) ->
+    false.
