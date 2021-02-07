@@ -28,32 +28,35 @@
 -record(board, {
     % card array array 各プレイヤーが持つカード
     hands,
-    % card list 山札
+    % int list 山札
     deck,
     % int <= length(hands) deckの先頭を使ってattackを行う人
     turn = 1,
     % bool stayができるかどうか
     can_stay = false,
-    % card: attacker card; {deck, C} or {hand, HI}
+    % card: attacker card; {deck, N} or {hand, HI}
     attacker_card
 }).
 
 new_board(NumPlayers) when is_integer(NumPlayers), 2 =< NumPlayers, NumPlayers =< 4 ->
-    Cards = [#card{num = N} || N <- shuffle_list(lists:seq(0, 23))],
-    {Hands, Deck} =
+    Nums = shuffle_list(lists:seq(0, 23)),
+    {HandsNum, Deck} =
         case NumPlayers of
             2 ->
-                [C1, C2, C3, C4, C5, C6, C7, C8 | D] = Cards,
-                {[[C1, C2, C3, C4], [C5, C6, C7, C8]], D};
+                [N1, N2, N3, N4, N5, N6, N7, N8 | D] = Nums,
+                {[[N1, N2, N3, N4], [N5, N6, N7, N8]], D};
             3 ->
-                [C1, C2, C3, C4, C5, C6, C7, C8, C9 | D] = Cards,
-                {[[C1, C2, C3], [C4, C5, C6], [C7, C8, C9]], D};
+                [N1, N2, N3, N4, N5, N6, N7, N8, N9 | D] = Nums,
+                {[[N1, N2, N3], [N4, N5, N6], [N7, N8, N9]], D};
             4 ->
-                [C1, C2, C3, C4, C5, C6, C7, C8 | D] = Cards,
-                {[[C1, C2], [C3, C4], [C5, C6], [C7, C8]], D}
+                [N1, N2, N3, N4, N5, N6, N7, N8 | D] = Nums,
+                {[[N1, N2], [N3, N4], [N5, N6], [N7, N8]], D}
         end,
-    SortedHands = array:from_list([array:from_list(lists:sort(C)) || C <- Hands]),
-    #board{hands = SortedHands, deck = Deck}.
+    Hands = array:from_list([
+        array:from_list([#card{num = N} || N <- lists:sort(HandNum)])
+        || HandNum <- HandsNum
+    ]),
+    #board{hands = Hands, deck = Deck}.
 
 can_stay(Board) -> Board#board.can_stay.
 
@@ -62,7 +65,7 @@ num_players(Board) -> array:size(Board#board.hands).
 attacker_card(Board) ->
     case Board#board.attacker_card of
         undefined -> undefined;
-        {deck, #card{num = N, hidden = H}} -> {deck, {N, H}};
+        {deck, N} -> {deck, N};
         {hand, HI} -> {hand, HI}
     end.
 
@@ -118,14 +121,14 @@ hand_from_others(Board = #board{}, PlayerIndex) when is_integer(PlayerIndex) ->
 get_deck_top_from_others(#board{deck = Deck}) ->
     case Deck of
         [] -> none;
-        [#card{num = N} | _] -> N rem 2
+        [N | _] -> N rem 2
     end.
 
 choose_attacker_card(Board = #board{deck = Deck}, HandIndex) ->
     case Deck of
-        [C | NewDeck] ->
+        [N | NewDeck] ->
             % Deck is not empty.
-            Board#board{deck = NewDeck, attacker_card = {deck, C}};
+            Board#board{deck = NewDeck, attacker_card = {deck, N}};
         [] ->
             % Deck is empty! Use HandIndex.
             % The chosen card should be hidden.
@@ -159,9 +162,9 @@ reset_attacker_card(Board = #board{}, Hidden) ->
     Turn = current_turn(Board),
     NewBoard =
         case Board#board.attacker_card of
-            {deck, C} ->
+            {deck, N} ->
                 OldHand = array:to_list(get_hand(Board, Turn)),
-                NewHand = [C#card{hidden = Hidden} | OldHand],
+                NewHand = [#card{num = N, hidden = Hidden} | OldHand],
                 SortedNewHand = lists:sort(NewHand),
                 set_hand(Board, Turn, array:from_list(SortedNewHand));
             {hand, HI} when Hidden =:= false ->
@@ -218,7 +221,7 @@ board_to_map(Board, PlayerIndex) ->
         attacker_card =>
             case attacker_card(Board) of
                 undefined -> null;
-                {deck, {N, _H}} -> [1, N];
+                {deck, N} -> [1, N];
                 {hand, HI} -> [2, HI]
             end
     },
@@ -231,7 +234,7 @@ board_to_map(Board, PlayerIndex) ->
                 your_hand => [N || {N, _H} <- hand(Board, PI)],
                 your_attacker_card_from_deck =>
                     case {current_turn(Board), attacker_card(Board)} of
-                        {Turn, {deck, C}} when Turn =:= PI -> card_tuple_to_list(C);
+                        {Turn, {deck, N1}} when Turn =:= PI -> N1;
                         _ -> null
                     end
             }
