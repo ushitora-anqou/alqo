@@ -120,7 +120,7 @@ hand_from_others(Board = #board{}, PlayerIndex) when is_integer(PlayerIndex) ->
 
 get_deck_top_from_others(#board{deck = Deck}) ->
     case Deck of
-        [] -> none;
+        [] -> undefined;
         [N | _] -> N rem 2
     end.
 
@@ -283,4 +283,4 @@ reveal_hand(Board = #board{}, PlayerIndex, HandIndex) ->
     end.
 
 card_tuple_to_list({N, H}) -> [N, H];
-card_tuple_to_list(none) -> null.
+card_tuple_to_list(undefined) -> null.

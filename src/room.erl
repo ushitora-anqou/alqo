@@ -93,7 +93,7 @@ handle_call_impl(
                 {Result, Board1} = game:attack(Board, TargetPlayer, TargetIndex, Guess),
                 Board2 =
                     case {game:attacker_card(Board1), game:get_deck_top_from_others(Board1)} of
-                        {undefined, none} ->
+                        {undefined, undefined} ->
                             % Need explicitly choosing
                             Board1;
                         {undefined, _} ->

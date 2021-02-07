@@ -67,7 +67,7 @@ scenario1(_) ->
         ?_assertEqual(game:hand(B1, 2), [{1, true}, {15, true}, {17, true}, {23, true}]),
         % correct deck?
         ?_assertEqual(game:get_deck_top_from_others(B1), 0),
-        ?_assertEqual(game:get_deck_top_from_others(B100), none),
+        ?_assertEqual(game:get_deck_top_from_others(B100), undefined),
         % correct turn?
         ?_assertEqual(game:current_turn(B1), 1),
         ?_assertEqual(game:current_turn(B2), 1),
