@@ -321,6 +321,35 @@ websocket_observers(_Config) ->
             ok
     end,
 
+    CardNum1_1 = get_hand_of(RoomURL, Pl1Cookie, 1),
+    CardNum1_2 = get_hand_of(RoomURL, Pl1Cookie, 2),
+    CardNum1_3 = get_hand_of(RoomURL, Pl1Cookie, 3),
+    CardNum1_4 = get_hand_of(RoomURL, Pl1Cookie, 4),
+    CardNum1_5 = get_hand_of(RoomURL, Pl1Cookie, 5),
+    catch case attack(RoomURL, Pl2Cookie, 1, 1, CardNum1_1) of
+        #{<<"result">> := true} ->
+            [<<"attacked">>, _] = ws_wait_json()
+    end,
+    catch case attack(RoomURL, Pl2Cookie, 1, 2, CardNum1_2) of
+        #{<<"result">> := true} ->
+            [<<"attacked">>, _] = ws_wait_json()
+    end,
+    catch case attack(RoomURL, Pl2Cookie, 1, 3, CardNum1_3) of
+        #{<<"result">> := true} ->
+            [<<"attacked">>, _] = ws_wait_json()
+    end,
+    catch case attack(RoomURL, Pl2Cookie, 1, 4, CardNum1_4) of
+        #{<<"result">> := true} ->
+            [<<"attacked">>, _] = ws_wait_json()
+    end,
+    catch case attack(RoomURL, Pl2Cookie, 1, 5, CardNum1_5) of
+        #{<<"result">> := true} ->
+            [<<"attacked">>, _] = ws_wait_json()
+    end,
+    % game finished
+    #{<<"board">> := #{<<"winner">> := 2}} = get_room_state(RoomURL),
+    [<<"game_finished">>, 2] = ws_wait_json(),
+
     ok.
 
 %% Helper functions

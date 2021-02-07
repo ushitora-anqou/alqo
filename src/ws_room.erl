@@ -36,5 +36,7 @@ websocket_info({attacked, NewBoard, TargetPlayer, TargetHandIndex, Guess, Result
                 ])}
         ],
         State};
+websocket_info({game_finished, Winner}, State) ->
+    {[{text, jsone:encode([game_finished, Winner])}], State};
 websocket_info(_Info, State) ->
     {[], State}.

@@ -101,10 +101,21 @@ handle_call_impl(
                         _ ->
                             Board1
                     end,
+
+                % Send attacked event
                 room_database:ws_send_to_all_in_room(
                     RoomID,
                     {attacked, Board2, TargetPlayer, TargetIndex, Guess, Result}
                 ),
+
+                % Send game_finished event if game has finished
+                case game:check_finished(Board2) of
+                    not_finished ->
+                        ok;
+                    {finished, Winner} ->
+                        room_database:ws_send_to_all_in_room(RoomID, {game_finished, Winner})
+                end,
+
                 {reply, {ok, Result}, {playing, Board2}}
             catch
                 throw:Reason ->
