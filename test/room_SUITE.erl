@@ -9,6 +9,7 @@ groups() ->
             create_register_get,
             attack_success_failure,
             websocket_observers,
+            websocket_observers_stay,
             when_room_died,
             game_finished_winner,
             attack_and_stay
@@ -359,6 +360,56 @@ websocket_observers(_Config) ->
     [<<"game_finished">>, 2] = ws_wait_json(),
 
     ok.
+
+websocket_observers_stay(_Config) ->
+    RoomURL = create_room(2),
+    {ok, ConnPid} = gun:open("localhost", 8080),
+    {ok, _Protocol} = gun:await_up(ConnPid),
+    gun:ws_upgrade(ConnPid, [RoomURL, <<"/ws">>]),
+    receive
+        {gun_upgrade, _ConnPid, _StreamRef, [<<"websocket">>], _Headers} ->
+            ok
+    end,
+    % Connection established
+
+    Pl1Cookie = register_as_player(RoomURL),
+    case ws_wait_json() of
+        [<<"player_registered">>, 1] ->
+            ok
+    end,
+    Pl2Cookie = register_as_player(RoomURL),
+    case ws_wait_json() of
+        [<<"player_registered">>, 2] ->
+            ok
+    end,
+
+    case {get_room_state(RoomURL), ws_wait_json()} of
+        {#{<<"board">> := Board1}, [<<"game_started">>, Board2]} when Board1 =:= Board2 ->
+            ok
+    end,
+    % game started
+
+    CardNum2_1 = get_hand_of(RoomURL, Pl2Cookie, 1),
+    CardNum2_2 = get_hand_of(RoomURL, Pl2Cookie, 2),
+    #{<<"result">> := true} = attack(RoomURL, Pl1Cookie, 2, 1, CardNum2_1),
+    case {get_room_state(RoomURL), ws_wait_json()} of
+        {#{<<"board">> := Board3}, [
+            <<"attacked">>,
+            #{
+                <<"board">> := Board4,
+                <<"target_player">> := 2,
+                <<"target_hand_index">> := 1,
+                <<"guess">> := Guess2_1,
+                <<"result">> := true
+            }
+        ]} when Board3 =:= Board4, CardNum2_1 =:= Guess2_1 ->
+            ok
+    end,
+
+    #{<<"result">> := true} = stay(RoomURL, Pl1Cookie),
+    case ws_wait_json() of
+        [<<"stayed">>, _] -> ok
+    end.
 
 %% Helper functions
 ws_wait_json() ->
