@@ -10,6 +10,7 @@ groups() ->
             attack_success_failure,
             websocket_observers,
             websocket_observers_stay,
+            websocket_players,
             when_room_died,
             game_finished_winner,
             attack_and_stay
@@ -323,7 +324,7 @@ websocket_observers(_Config) ->
                 <<"board">> := Board6,
                 <<"target_player">> := 2,
                 <<"target_hand_index">> := 2,
-                <<"guess">> := Guess2_2,
+                <<"guess">> := _Guess2_2,
                 <<"result">> := false
             }
         ]} when Board5 =:= Board6 ->
@@ -390,7 +391,6 @@ websocket_observers_stay(_Config) ->
     % game started
 
     CardNum2_1 = get_hand_of(RoomURL, Pl2Cookie, 1),
-    CardNum2_2 = get_hand_of(RoomURL, Pl2Cookie, 2),
     #{<<"result">> := true} = attack(RoomURL, Pl1Cookie, 2, 1, CardNum2_1),
     case {get_room_state(RoomURL), ws_wait_json()} of
         {#{<<"board">> := Board3}, [
@@ -411,13 +411,75 @@ websocket_observers_stay(_Config) ->
         [<<"stayed">>, _] -> ok
     end.
 
-%% Helper functions
-ws_wait_json() ->
+websocket_players(_Config) ->
+    RoomURL = create_room(2),
+    Pl1Cookie = register_as_player(RoomURL),
+
+    {ok, ConnPid1} = gun:open("localhost", 8080),
+    {ok, _Protocol} = gun:await_up(ConnPid1),
+    gun:ws_upgrade(ConnPid1, [RoomURL, <<"/ws">>], [{<<"Cookie">>, Pl1Cookie}]),
     receive
-        {gun_ws, _ConnPid, _StreamRef, {text, Msg}} ->
+        {gun_upgrade, _ConnPid1, _StreamRef1, [<<"websocket">>], _Headers1} ->
+            ok
+    end,
+    % Connection for player 1 has been established
+
+    Pl2Cookie = register_as_player(RoomURL),
+    {ok, ConnPid2} = gun:open("localhost", 8080),
+    {ok, _Protocol} = gun:await_up(ConnPid2),
+    gun:ws_upgrade(ConnPid2, [RoomURL, <<"/ws">>], [{<<"Cookie">>, Pl2Cookie}]),
+    receive
+        {gun_upgrade, _ConnPid2, _StreamRef2, [<<"websocket">>], _Headers2} ->
+            ok
+    end,
+    % Connection for player 2 has been established
+
+    [<<"player_registered">>, 2] = ws_wait_json(ConnPid1),
+    [<<"game_started">>, _Board] = ws_wait_json(ConnPid1),
+
+    % Event your_hand
+    case {get_room_state(RoomURL, Pl1Cookie), ws_wait_json(ConnPid1)} of
+        {#{<<"board">> := #{<<"your_hand">> := MyHand1}}, [<<"your_hand">>, MyHand2]} when
+            MyHand1 =:= MyHand2
+        ->
+            ok
+    end,
+
+    % Event your_turn
+    case {get_room_state(RoomURL, Pl1Cookie), ws_wait_json(ConnPid1)} of
+        {#{<<"board">> := #{<<"your_attacker_card_from_deck">> := MyAttackerCard1}}, [
+            <<"your_turn">>,
+            MyAttackerCard2
+        ]} when MyAttackerCard1 =:= MyAttackerCard2 ->
+            ok
+    end,
+
+    CardNum2_1 = get_hand_of(RoomURL, Pl2Cookie, 1),
+    #{<<"result">> := false} = attack(RoomURL, Pl1Cookie, 2, 1, card_different_from(CardNum2_1)),
+    [<<"attacked">>, #{<<"result">> := false}] = ws_wait_json(ConnPid1),
+    [<<"attacked">>, #{<<"result">> := false}] = ws_wait_json(ConnPid2),
+
+    % Event your_turn for player 2
+    case {get_room_state(RoomURL, Pl2Cookie), ws_wait_json(ConnPid2)} of
+        {#{<<"board">> := #{<<"your_attacker_card_from_deck">> := MyAttackerCard3}}, [
+            <<"your_turn">>,
+            MyAttackerCard4
+        ]} when MyAttackerCard3 =:= MyAttackerCard4 ->
+            ok
+    end,
+
+    ok.
+
+%% Helper functions
+ws_wait_json(ConnPid) ->
+    receive
+        {gun_ws, ConnPid_, _StreamRef, {text, Msg}} when
+            ConnPid =:= undefined; ConnPid =:= ConnPid_
+        ->
             jsone:decode(Msg)
     after 5000 -> erlang:error(timeout)
     end.
+ws_wait_json() -> ws_wait_json(undefined).
 
 create_room(NumPlayers) ->
     {ok, 200, _, ClientRef} = hackney:post(

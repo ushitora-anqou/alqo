@@ -72,7 +72,20 @@ handle_call_impl(
     case RegisteredNumPlayers + 1 =:= NumPlayers of
         true ->
             Board = game:choose_attacker_card(game:new_board(NumPlayers)),
+
+            % Send event game_started
             room_database:ws_send_to_all_in_room(RoomID, {game_started, Board}),
+            % Send each hand
+            lists:foreach(
+                fun(PI) ->
+                    HandNums = [N || {N, _H} <- game:hand(Board, PI)],
+                    room_database:ws_send(RoomID, PI, {your_hand, HandNums})
+                end,
+                lists:seq(1, NumPlayers)
+            ),
+            % Send event your_turn to player 1
+            ws_send_your_turn(RoomID, Board),
+
             {reply, {ok, NewPlayerIndex}, {playing, Board}};
         false ->
             {reply, {ok, NewPlayerIndex}, {not_started, RegisteredNumPlayers + 1, NumPlayers}}
@@ -108,6 +121,12 @@ handle_call_impl(
                         room_database:ws_send_to_all_in_room(RoomID, {game_finished, Winner})
                 end,
 
+                % Send your_turn event if turn changed
+                case game:current_turn(Board2) =:= game:next_turn(Board) of
+                    false -> ok;
+                    true -> ws_send_your_turn(RoomID, Board2)
+                end,
+
                 {reply, {ok, Result}, {playing, Board2}}
             catch
                 throw:Reason ->
@@ -129,6 +148,8 @@ handle_call_impl({stay, PlayerIndex}, _From, RoomID, {playing, Board}) ->
 
             % Send stayed event
             room_database:ws_send_to_all_in_room(RoomID, {stayed, Board2}),
+            % Send your_turn event
+            ws_send_your_turn(RoomID, Board2),
 
             {reply, ok, {playing, Board2}}
     end;
@@ -156,3 +177,14 @@ state_has_finished({playing, Board}) ->
     end;
 state_has_finished(_) ->
     false.
+
+ws_send_your_turn(RoomID, Board) ->
+    room_database:ws_send(
+        RoomID,
+        game:current_turn(Board),
+        {your_turn,
+            case game:attacker_card(Board) of
+                undefined -> null;
+                {deck, N} -> N
+            end}
+    ).
