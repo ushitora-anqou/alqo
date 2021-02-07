@@ -254,8 +254,8 @@ websocket_scenario(_Config) ->
     end,
 
     % View from observers
-    case ws_wait_json() of
-        [<<"game_started">>, Board] ->
+    case {get_room_state(RoomURL), ws_wait_json()} of
+        {#{<<"board">> := Board1}, [<<"game_started">>, Board2]} when Board1 =:= Board2 ->
             ok
     end,
 
@@ -289,19 +289,21 @@ register_as_player(RoomURL) ->
     Cookie.
 
 request(Method, URL, Payload, Cookie, Options) ->
-    hackney:request(
-        Method,
-        URL,
-        [{<<"Content-Type">>, <<"application/json">>}, {<<"Cookie">>, Cookie}],
-        Payload,
-        Options
-    ).
+    HeadersWithoutCookie = [{<<"Content-Type">>, <<"application/json">>}],
+    Headers =
+        case Cookie of
+            undefined -> HeadersWithoutCookie;
+            V -> [{<<"Cookie">>, V} | HeadersWithoutCookie]
+        end,
+    hackney:request(Method, URL, Headers, Payload, Options).
 
 get_room_state(RoomURL, Cookie) ->
-    %{ok, 200, _, ClientRef} = hackney:get(RoomURL, [{<<"Cookie">>, Cookie}], "", []),
     {ok, 200, _, ClientRef} = request(get, RoomURL, "", Cookie, []),
     {ok, Body} = hackney:body(ClientRef),
     jsone:decode(Body).
+
+get_room_state(RoomURL) ->
+    get_room_state(RoomURL, undefined).
 
 attack(RoomURL, Cookie, TargetPlayer, TargetIndex, Guess) ->
     {ok, 200, _, ClientRef} = request(
