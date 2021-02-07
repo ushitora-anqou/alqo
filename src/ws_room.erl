@@ -17,5 +17,24 @@ websocket_info({player_registered, PlayerIndex}, State) ->
     {[{text, jsone:encode([<<"player_registered">>, PlayerIndex])}], State};
 websocket_info({game_started, Board}, State) ->
     {[{text, jsone:encode([<<"game_started">>, game:board_to_map(Board)])}], State};
+websocket_info({attacked, NewBoard, TargetPlayer, TargetHandIndex, Guess, Result}, State) ->
+    {[
+            {text,
+                jsone:encode([
+                    attacked,
+                    #{
+                        board => game:board_to_map(NewBoard),
+                        target_player => TargetPlayer,
+                        target_hand_index => TargetHandIndex,
+                        guess => Guess,
+                        result =>
+                            case Result of
+                                success -> true;
+                                failure -> false
+                            end
+                    }
+                ])}
+        ],
+        State};
 websocket_info(_Info, State) ->
     {[], State}.

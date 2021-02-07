@@ -8,7 +8,7 @@ groups() ->
         {session, [parallel, {repeat, 10}], [
             create_register_get,
             attack_success_failure,
-            websocket_scenario,
+            websocket_observers,
             when_room_died
         ]}
     ].
@@ -231,7 +231,7 @@ attack_success_failure(_Config) ->
 
     ok.
 
-websocket_scenario(_Config) ->
+websocket_observers(_Config) ->
     RoomURL = create_room(2),
     {ok, ConnPid} = gun:open("localhost", 8080),
     {ok, _Protocol} = gun:await_up(ConnPid),
@@ -253,9 +253,40 @@ websocket_scenario(_Config) ->
             ok
     end,
 
-    % View from observers
     case {get_room_state(RoomURL), ws_wait_json()} of
         {#{<<"board">> := Board1}, [<<"game_started">>, Board2]} when Board1 =:= Board2 ->
+            ok
+    end,
+    % game started
+
+    CardNum2_1 = get_hand_of(RoomURL, Pl2Cookie, 1),
+    CardNum2_2 = get_hand_of(RoomURL, Pl2Cookie, 2),
+    #{<<"result">> := true} = attack(RoomURL, Pl1Cookie, 2, 1, CardNum2_1),
+    case {get_room_state(RoomURL), ws_wait_json()} of
+        {#{<<"board">> := Board3}, [
+            <<"attacked">>,
+            #{
+                <<"board">> := Board4,
+                <<"target_player">> := 2,
+                <<"target_hand_index">> := 1,
+                <<"guess">> := Guess2_1,
+                <<"result">> := true
+            }
+        ]} when Board3 =:= Board4, CardNum2_1 =:= Guess2_1 ->
+            ok
+    end,
+    #{<<"result">> := false} = attack(RoomURL, Pl1Cookie, 2, 2, card_different_from(CardNum2_2)),
+    case {get_room_state(RoomURL), ws_wait_json()} of
+        {#{<<"board">> := Board5}, [
+            <<"attacked">>,
+            #{
+                <<"board">> := Board6,
+                <<"target_player">> := 2,
+                <<"target_hand_index">> := 2,
+                <<"guess">> := Guess2_2,
+                <<"result">> := false
+            }
+        ]} when Board5 =:= Board6 ->
             ok
     end,
 

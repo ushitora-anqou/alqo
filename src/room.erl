@@ -82,7 +82,7 @@ handle_call_impl(get_board, _From, _RoomID, State) ->
 handle_call_impl(
     {attack, PlayerIndex, TargetPlayer, TargetIndex, Guess},
     _From,
-    _RoomID,
+    RoomID,
     {playing, Board}
 ) ->
     case PlayerIndex =:= game:current_turn(Board) of
@@ -101,6 +101,10 @@ handle_call_impl(
                         _ ->
                             Board1
                     end,
+                room_database:ws_send_to_all_in_room(
+                    RoomID,
+                    {attacked, Board2, TargetPlayer, TargetIndex, Guess, Result}
+                ),
                 {reply, {ok, Result}, {playing, Board2}}
             catch
                 throw:Reason ->
