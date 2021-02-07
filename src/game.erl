@@ -14,7 +14,9 @@
     choose_attacker_card/1,
     choose_attacker_card/2,
     attack/4,
-    stay/1
+    stay/1,
+    board_to_map/2,
+    board_to_map/1
 ]).
 
 -record(card, {
@@ -197,6 +199,47 @@ stay(Board = #board{can_stay = true}) ->
 stay(#board{can_stay = false}) ->
     throw(cannot_stay).
 
+board_to_map(Board, PlayerIndex) ->
+    Map = #{
+        can_stay => can_stay(Board),
+        current_turn => current_turn(Board),
+        next_turn => next_turn(Board),
+        num_players => num_players(Board),
+        winner =>
+            case check_finished(Board) of
+                not_finished -> null;
+                {finished, Winner} -> Winner
+            end,
+        hands => [
+            [[N, H] || {N, H} <- hand_from_others(Board, PI)]
+            || PI <- lists:seq(1, num_players(Board))
+        ],
+        deck_top => get_deck_top_from_others(Board),
+        attacker_card =>
+            case attacker_card(Board) of
+                undefined -> null;
+                {deck, {N, _H}} -> [1, N];
+                {hand, HI} -> [2, HI]
+            end
+    },
+    case PlayerIndex of
+        undefined ->
+            Map;
+        PI ->
+            Map#{
+                your_player_index => PI,
+                your_hand => [N || {N, _H} <- hand(Board, PI)],
+                your_attacker_card_from_deck =>
+                    case {current_turn(Board), attacker_card(Board)} of
+                        {Turn, {deck, C}} when Turn =:= PI -> card_tuple_to_list(C);
+                        _ -> null
+                    end
+            }
+    end.
+
+board_to_map(Board) ->
+    board_to_map(Board, undefined).
+
 %%% private functions
 shuffle_list(L) when is_list(L) ->
     % Thanks to: https://stackoverflow.com/a/8820501
@@ -235,3 +278,6 @@ reveal_hand(Board = #board{}, PlayerIndex, HandIndex) ->
             NewCard = OldCard#card{hidden = false},
             set_hand(Board, PlayerIndex, HandIndex, NewCard)
     end.
+
+card_tuple_to_list({N, H}) -> [N, H];
+card_tuple_to_list(none) -> null.

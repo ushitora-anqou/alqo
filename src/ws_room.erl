@@ -15,5 +15,7 @@ websocket_handle(_Data, State) ->
 
 websocket_info({player_registered, PlayerIndex}, State) ->
     {[{text, jsone:encode([<<"player_registered">>, PlayerIndex])}], State};
+websocket_info({game_started, Board}, State) ->
+    {[{text, jsone:encode([<<"game_started">>, game:board_to_map(Board)])}], State};
 websocket_info(_Info, State) ->
     {[], State}.

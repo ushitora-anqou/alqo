@@ -30,7 +30,6 @@ register_user(Req, RoomID) ->
             case room:register_as_player(Pid) of
                 {ok, PlayerIndex} ->
                     {ok, Req2} = cowboy_session:set({player_index, RoomID}, PlayerIndex, Req1),
-                    room_database:ws_send_to_all_in_room(RoomID, {player_registered, PlayerIndex}),
                     {{true, <<<<"/room/">>/binary, RoomID/binary>>}, Req2, RoomID};
                 {error, _} ->
                     {false, Req1, RoomID}

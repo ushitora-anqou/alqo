@@ -29,7 +29,7 @@ init(RoomID) ->
 
 handle_call(Event, From, RoomID) ->
     State = room_database:get_current_state(RoomID),
-    case handle_call_impl(Event, From, State) of
+    case handle_call_impl(Event, From, RoomID, State) of
         {reply, Reply, NewState} ->
             room_database:set_current_state(RoomID, NewState),
             {reply, Reply, RoomID};
@@ -55,26 +55,36 @@ terminate(_Reason, _RoomID) ->
 
 %%% Private functions
 
-handle_call_impl(register_as_player, _From, {not_started, RegisteredNumPlayers, NumPlayers}) when
-    RegisteredNumPlayers < NumPlayers
-->
+handle_call_impl(
+    register_as_player,
+    _From,
+    RoomID,
+    {not_started, RegisteredNumPlayers, NumPlayers}
+) when RegisteredNumPlayers < NumPlayers ->
     NewPlayerIndex = RegisteredNumPlayers + 1,
+    room_database:ws_send_to_all_in_room(RoomID, {player_registered, NewPlayerIndex}),
     case RegisteredNumPlayers + 1 =:= NumPlayers of
         true ->
             Board = game:choose_attacker_card(game:new_board(NumPlayers)),
+            room_database:ws_send_to_all_in_room(RoomID, {game_started, Board}),
             {reply, {ok, NewPlayerIndex}, {playing, Board}};
         false ->
             {reply, {ok, NewPlayerIndex}, {not_started, RegisteredNumPlayers + 1, NumPlayers}}
     end;
-handle_call_impl(register_as_player, _From, State) ->
+handle_call_impl(register_as_player, _From, _RoomID, State) ->
     {reply, {error, playing}, State};
 %
-handle_call_impl(get_board, _From, {playing, Board}) ->
+handle_call_impl(get_board, _From, _RoomID, {playing, Board}) ->
     {reply, {ok, Board}, {playing, Board}};
-handle_call_impl(get_board, _From, State) ->
+handle_call_impl(get_board, _From, _RoomID, State) ->
     {reply, {error, not_started}, State};
 %
-handle_call_impl({attack, PlayerIndex, TargetPlayer, TargetIndex, Guess}, _From, {playing, Board}) ->
+handle_call_impl(
+    {attack, PlayerIndex, TargetPlayer, TargetIndex, Guess},
+    _From,
+    _RoomID,
+    {playing, Board}
+) ->
     case PlayerIndex =:= game:current_turn(Board) of
         false ->
             {reply, {error, not_current_turn}, {playing, Board}};
@@ -97,8 +107,8 @@ handle_call_impl({attack, PlayerIndex, TargetPlayer, TargetIndex, Guess}, _From,
                     {reply, {error, Reason}, {playing, Board}}
             end
     end;
-handle_call_impl(attack, _From, State) ->
+handle_call_impl(attack, _From, _RoomID, State) ->
     {reply, {error, not_started}, State};
 %
-handle_call_impl(_Event, _From, State) ->
+handle_call_impl(_Event, _From, _RoomID, State) ->
     {noreply, State}.

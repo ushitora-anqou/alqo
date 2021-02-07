@@ -251,6 +251,12 @@ websocket_scenario(_Config) ->
             ok
     end,
 
+    % View from observers
+    case ws_wait_json() of
+        [<<"game_started">>, Board] ->
+            ok
+    end,
+
     ok.
 
 %% Helper functions
