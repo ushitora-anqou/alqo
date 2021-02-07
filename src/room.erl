@@ -1,7 +1,7 @@
 -module(room).
 -behaviour(gen_server).
 
--export([start_link/1, register_as_player/1, get_board/1, initial_state/1, attack/5, stay/2]).
+-export([start_link/1, register_as_player/1, initial_state/1, attack/5, stay/2]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
 -type state() :: {not_started, integer(), integer()} | {playing, any()}.
@@ -11,9 +11,6 @@ start_link(NumPlayers) ->
 
 register_as_player(Pid) ->
     gen_server:call(Pid, register_as_player).
-
-get_board(Pid) ->
-    gen_server:call(Pid, get_board).
 
 attack(Pid, PlayerIndex, TargetPlayer, TargetIndex, Guess) ->
     gen_server:call(Pid, {attack, PlayerIndex, TargetPlayer, TargetIndex, Guess}).
@@ -32,13 +29,19 @@ init(RoomID) ->
 
 handle_call(Event, From, RoomID) ->
     State = room_database:get_current_state(RoomID),
-    case handle_call_impl(Event, From, RoomID, State) of
-        {reply, Reply, NewState} ->
-            room_database:set_current_state(RoomID, NewState),
-            {reply, Reply, RoomID};
-        {noreply, NewState} ->
-            room_database:set_current_state(RoomID, NewState),
-            {noreply, RoomID}
+    case state_has_finished(State) of
+        true ->
+            % Reply error if game has already finished
+            {reply, {error, game_already_finished}, RoomID};
+        false ->
+            case handle_call_impl(Event, From, RoomID, State) of
+                {reply, Reply, NewState} ->
+                    room_database:set_current_state(RoomID, NewState),
+                    {reply, Reply, RoomID};
+                {noreply, NewState} ->
+                    room_database:set_current_state(RoomID, NewState),
+                    {noreply, RoomID}
+            end
     end.
 
 handle_cast({set_pid, RoomID}, State) ->
@@ -76,11 +79,6 @@ handle_call_impl(
     end;
 handle_call_impl(register_as_player, _From, _RoomID, State) ->
     {reply, {error, playing}, State};
-%
-handle_call_impl(get_board, _From, _RoomID, {playing, Board}) ->
-    {reply, {ok, Board}, {playing, Board}};
-handle_call_impl(get_board, _From, _RoomID, State) ->
-    {reply, {error, not_started}, State};
 %
 handle_call_impl(
     {attack, PlayerIndex, TargetPlayer, TargetIndex, Guess},
@@ -136,6 +134,7 @@ handle_call_impl({stay, PlayerIndex}, _From, RoomID, {playing, Board}) ->
     end;
 handle_call_impl({stay, _}, _From, _RoomID, State) ->
     {reply, {error, not_started}, State};
+%
 handle_call_impl(_Event, _From, _RoomID, State) ->
     {noreply, State}.
 

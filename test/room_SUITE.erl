@@ -243,6 +243,9 @@ game_finished_winner(_Config) ->
         }
     } = get_room_state(RoomURL),
 
+    % Stay in finished game will fail
+    {ok, 400, _, _} = request(post, [RoomURL, <<"/stay">>], "", Pl1Cookie, []),
+
     ok.
 
 attack_and_stay(_Config) ->
