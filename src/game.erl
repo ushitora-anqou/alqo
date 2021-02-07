@@ -4,6 +4,7 @@
     can_stay/1,
     num_players/1,
     attacker_card/1,
+    attacker_card_from_others/1,
     current_turn/1,
     next_turn/1,
     has_player_lost/2,
@@ -62,10 +63,12 @@ can_stay(Board) -> Board#board.can_stay.
 
 num_players(Board) -> array:size(Board#board.hands).
 
-attacker_card(Board) ->
-    case Board#board.attacker_card of
+attacker_card(Board) -> Board#board.attacker_card.
+
+attacker_card_from_others(Board) ->
+    case attacker_card(Board) of
         undefined -> undefined;
-        {deck, N} -> {deck, N};
+        {deck, N} -> {deck, N rem 2};
         {hand, HI} -> {hand, HI}
     end.
 
@@ -219,7 +222,7 @@ board_to_map(Board, PlayerIndex) ->
         ],
         deck_top => get_deck_top_from_others(Board),
         attacker_card =>
-            case attacker_card(Board) of
+            case attacker_card_from_others(Board) of
                 undefined -> null;
                 {deck, N} -> [1, N];
                 {hand, HI} -> [2, HI]
@@ -281,6 +284,3 @@ reveal_hand(Board = #board{}, PlayerIndex, HandIndex) ->
             NewCard = OldCard#card{hidden = false},
             set_hand(Board, PlayerIndex, HandIndex, NewCard)
     end.
-
-card_tuple_to_list({N, H}) -> [N, H];
-card_tuple_to_list(undefined) -> null.

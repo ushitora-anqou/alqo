@@ -27,6 +27,7 @@ new_board_N(N) ->
         ?_assertEqual(game:num_players(B), N),
         ?_assertEqual(game:current_turn(B), 1),
         ?_assertEqual(game:next_turn(B), 2),
+        ?_assertEqual(game:attacker_card(B), undefined),
         ?_assert(
             % Correct numer of hands
             lists:all(
@@ -68,6 +69,11 @@ scenario1(_) ->
         % correct deck?
         ?_assertEqual(game:get_deck_top_from_others(B1), 0),
         ?_assertEqual(game:get_deck_top_from_others(B100), undefined),
+        % correct attacker card?
+        ?_assertEqual(game:attacker_card(B2), {deck, 14}),
+        ?_assertEqual(game:attacker_card_from_others(B2), {deck, 0}),
+        ?_assertEqual(game:attacker_card(B101), {hand, 1}),
+        ?_assertEqual(game:attacker_card_from_others(B101), {hand, 1}),
         % correct turn?
         ?_assertEqual(game:current_turn(B1), 1),
         ?_assertEqual(game:current_turn(B2), 1),

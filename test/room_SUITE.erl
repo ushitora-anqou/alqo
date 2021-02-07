@@ -99,8 +99,7 @@ create_register_get(_Config) ->
             <<"current_turn">> := 1,
             <<"next_turn">> := 2,
             <<"num_players">> := 4,
-            <<"winner">> := null,
-            <<"attacker_card">> := [1, _]
+            <<"winner">> := null
         }
     } = Body1,
     Board1 = maps:get(<<"board">>, Body1),
@@ -111,6 +110,11 @@ create_register_get(_Config) ->
         of
             {false, false, false} -> ok;
             _ -> error
+        end,
+    ok =
+        case Board1 of
+            #{<<"attacker_card">> := [1, 0]} -> ok;
+            #{<<"attacker_card">> := [1, 1]} -> ok
         end,
 
     % View from logged-in user 1
@@ -124,18 +128,17 @@ create_register_get(_Config) ->
             <<"current_turn">> := 1,
             <<"next_turn">> := 2,
             <<"num_players">> := 4,
-            <<"winner">> := null,
-            <<"attacker_card">> := [1, _]
+            <<"winner">> := null
         }
     } = Body2,
-    case Body2 of
+    Board2 = maps:get(<<"board">>, Body2),
+    case Board2 of
         #{
-            <<"board">> := #{
-                <<"your_player_index">> := 1,
-                <<"your_hand">> := MyHand2,
-                <<"your_attacker_card_from_deck">> := MyAttackerCardFromDeck
-            }
-        } when MyHand2 =/= null, MyAttackerCardFromDeck =/= null ->
+            <<"attacker_card">> := [1, AttackerCard2],
+            <<"your_player_index">> := 1,
+            <<"your_hand">> := MyHand2,
+            <<"your_attacker_card_from_deck">> := MyAttackerCardFromDeck
+        } when MyHand2 =/= null, AttackerCard2 =:= MyAttackerCardFromDeck rem 2 ->
             ok
     end,
 
@@ -150,18 +153,17 @@ create_register_get(_Config) ->
             <<"current_turn">> := 1,
             <<"next_turn">> := 2,
             <<"num_players">> := 4,
-            <<"winner">> := null,
-            <<"attacker_card">> := [1, _]
+            <<"winner">> := null
         }
     } = Body3,
-    case Body3 of
+    Board3 = maps:get(<<"board">>, Body3),
+    case Board3 of
         #{
-            <<"board">> := #{
-                <<"your_player_index">> := 2,
-                <<"your_hand">> := MyHand3,
-                <<"your_attacker_card_from_deck">> := null
-            }
-        } when MyHand3 =/= null ->
+            <<"attacker_card">> := [1, AttackerCard3],
+            <<"your_player_index">> := 2,
+            <<"your_hand">> := MyHand3,
+            <<"your_attacker_card_from_deck">> := null
+        } when MyHand3 =/= null, AttackerCard3 =:= MyAttackerCardFromDeck rem 2 ->
             ok
     end,
 
