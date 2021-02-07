@@ -209,7 +209,11 @@ board_to_map(Board, PlayerIndex) ->
     Map = #{
         can_stay => can_stay(Board),
         current_turn => current_turn(Board),
-        next_turn => next_turn(Board),
+        next_turn =>
+            case check_finished(Board) of
+                not_finished -> next_turn(Board);
+                _ -> null
+            end,
         num_players => num_players(Board),
         winner =>
             case check_finished(Board) of

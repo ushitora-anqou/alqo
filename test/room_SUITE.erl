@@ -9,7 +9,8 @@ groups() ->
             create_register_get,
             attack_success_failure,
             websocket_observers,
-            when_room_died
+            when_room_died,
+            game_finished_winner
         ]}
     ].
 
@@ -228,6 +229,36 @@ attack_success_failure(_Config) ->
     #{<<"result">> := false} = attack(RoomURL, Pl2Cookie, 4, 2, card_different_from(CardNum4_2)),
     % The next turn is 4, not 3
     #{<<"board">> := #{<<"current_turn">> := 4}} = get_room_state(RoomURL, Pl3Cookie),
+
+    ok.
+
+game_finished_winner(_Config) ->
+    {ok, 200, _, ClientRef} = hackney:post(
+        "http://localhost:8080/room",
+        [{<<"Content-Type">>, <<"application/json">>}],
+        jsone:encode(#{nplayers => 2}),
+        [{follow_redirect, true}]
+    ),
+    RoomURL = hackney:location(ClientRef),
+
+    Pl1Cookie = register_as_player(RoomURL),
+    Pl2Cookie = register_as_player(RoomURL),
+
+    CardNum2_1 = get_hand_of(RoomURL, Pl2Cookie, 1),
+    CardNum2_2 = get_hand_of(RoomURL, Pl2Cookie, 2),
+    CardNum2_3 = get_hand_of(RoomURL, Pl2Cookie, 3),
+    CardNum2_4 = get_hand_of(RoomURL, Pl2Cookie, 4),
+
+    #{<<"result">> := true} = attack(RoomURL, Pl1Cookie, 2, 1, CardNum2_1),
+    #{<<"result">> := true} = attack(RoomURL, Pl1Cookie, 2, 2, CardNum2_2),
+    #{<<"result">> := true} = attack(RoomURL, Pl1Cookie, 2, 3, CardNum2_3),
+    #{<<"result">> := true} = attack(RoomURL, Pl1Cookie, 2, 4, CardNum2_4),
+
+    #{
+        <<"board">> := #{
+            <<"winner">> := 1
+        }
+    } = get_room_state(RoomURL),
 
     ok.
 
