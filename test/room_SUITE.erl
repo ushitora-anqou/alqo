@@ -485,7 +485,7 @@ create_room(NumPlayers) ->
     {ok, 201, RespHd, ClientRef} = hackney:post(
         "http://localhost:8080/room",
         [{<<"Content-Type">>, <<"application/json">>}],
-        jsone:encode(#{nplayers => NumPlayers})
+        jsone:encode(#{num_players => NumPlayers})
     ),
     {_, RoomURL} = lists:keyfind(<<"location">>, 1, RespHd),
     [<<"http://localhost:8080">>, RoomURL].

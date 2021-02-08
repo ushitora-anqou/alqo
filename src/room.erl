@@ -111,7 +111,7 @@ state_to_json_impl({not_started, RegisteredNumPlayers, NumPlayers}, PlayerIndex)
     jsone:encode(#{
         status => <<"not_started">>,
         registered => RegisteredNumPlayers,
-        nplayers => NumPlayers,
+        num_players => NumPlayers,
         your_status =>
             case PlayerIndex of
                 undefined -> false;

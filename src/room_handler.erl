@@ -24,7 +24,7 @@ content_types_accepted(Req, State) ->
 create_room(Req0, State) ->
     {ok, ReqData, Req} = cowboy_req:read_body(Req0),
     case jsone:decode(ReqData) of
-        #{<<"nplayers">> := NumPlayers} when
+        #{<<"num_players">> := NumPlayers} when
             is_integer(NumPlayers), 2 =< NumPlayers, NumPlayers =< 4
         ->
             RoomID = room:create_one(NumPlayers),
