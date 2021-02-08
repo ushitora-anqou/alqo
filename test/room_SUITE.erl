@@ -182,7 +182,7 @@ attack_success_failure(_Config) ->
         AttackURL,
         jsone:encode(#{
             target_player => 1,
-            target_index => 1,
+            target_hand_index => 1,
             guess => 1
         }),
         Pl1Cookie,
@@ -205,7 +205,7 @@ attack_success_failure(_Config) ->
         AttackURL,
         jsone:encode(#{
             target_player => 3,
-            target_index => 1,
+            target_hand_index => 1,
             guess => CardNum3_1
         }),
         Pl2Cookie,
@@ -522,7 +522,7 @@ attack(RoomURL, Cookie, TargetPlayer, TargetIndex, Guess) ->
         [RoomURL, <<"/attack">>],
         jsone:encode(#{
             target_player => TargetPlayer,
-            target_index => TargetIndex,
+            target_hand_index => TargetIndex,
             guess => Guess
         }),
         Cookie,

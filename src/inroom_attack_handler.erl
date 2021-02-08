@@ -28,7 +28,7 @@ attack_target(Req, RoomID) ->
             case jsone:decode(ReqData) of
                 #{
                     <<"target_player">> := TargetPlayer,
-                    <<"target_index">> := TargetIndex,
+                    <<"target_hand_index">> := TargetIndex,
                     <<"guess">> := Guess
                 } when
                     is_integer(TargetPlayer),
