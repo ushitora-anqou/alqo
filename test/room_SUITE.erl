@@ -482,14 +482,13 @@ ws_wait_json(ConnPid) ->
 ws_wait_json() -> ws_wait_json(undefined).
 
 create_room(NumPlayers) ->
-    {ok, 200, _, ClientRef} = hackney:post(
+    {ok, 201, RespHd, ClientRef} = hackney:post(
         "http://localhost:8080/room",
         [{<<"Content-Type">>, <<"application/json">>}],
-        jsone:encode(#{nplayers => NumPlayers}),
-        [{follow_redirect, true}]
+        jsone:encode(#{nplayers => NumPlayers})
     ),
-    RoomURL = hackney:location(ClientRef),
-    RoomURL.
+    {_, RoomURL} = lists:keyfind(<<"location">>, 1, RespHd),
+    [<<"http://localhost:8080">>, RoomURL].
 
 register_as_player(RoomURL) ->
     {ok, 201, RespHd, _} = hackney:post(

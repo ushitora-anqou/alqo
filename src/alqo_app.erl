@@ -13,6 +13,7 @@ start(_StartType, _StartArgs) ->
     cowboy_session:start(),
     Dispatch = cowboy_router:compile([
         {<<"localhost">>, [
+            {<<"/">>, cowboy_static, {priv_file, alqo, "static/index.html"}},
             {<<"/room">>, room_handler, []},
             {<<"/room/:roomid">>, inroom_handler, []},
             {<<"/room/:roomid/ws">>, ws_room, []},
