@@ -22,7 +22,7 @@ create_room(Req0, State) ->
         #{<<"nplayers">> := NumPlayers} when
             is_integer(NumPlayers), 2 =< NumPlayers, NumPlayers =< 4
         ->
-            RoomID = room_database:create_room(NumPlayers),
+            RoomID = room:create_one(NumPlayers),
             {{true, <<<<"/room/">>/binary, RoomID/binary>>}, Req, State};
         _ ->
             {false, Req, State}

@@ -34,16 +34,16 @@ end_per_group(_, _Config) ->
 
 when_room_died(_Config) ->
     %% XXX test without sleep?
-    RoomID = room_database:create_room(4),
+    RoomID = room:create_one(4),
     timer:sleep(10),
     ok =
-        case room_database:get_pid(RoomID) of
+        case gproc:where({n, l, {alqo_room, RoomID}}) of
             undefined ->
                 error;
             Pid ->
                 exit(Pid, kill),
                 timer:sleep(10),
-                case room_database:get_pid(RoomID) of
+                case gproc:where({n, l, {alqo_room, RoomID}}) of
                     undefined -> error;
                     NewPid when NewPid =/= Pid -> ok
                 end

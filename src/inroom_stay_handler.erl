@@ -18,13 +18,13 @@ content_types_accepted(Req, State) ->
     {[{<<"application/json">>, stay}], Req, State}.
 
 stay(Req, RoomID) ->
-    case {cowboy_session:get({player_index, RoomID}, Req), room_database:get_pid(RoomID)} of
-        {{_, Req1}, undefined} ->
+    case {cowboy_session:get({player_index, RoomID}, Req), room:exists(RoomID)} of
+        {{_, Req1}, false} ->
             {false, Req1, RoomID};
-        {{undefined, Req1}, _} ->
+        {{undefined, Req1}, true} ->
             {false, Req1, RoomID};
-        {{PlayerIndex, Req1}, Pid} ->
-            case room:stay(Pid, PlayerIndex) of
+        {{PlayerIndex, Req1}, true} ->
+            case room:stay(RoomID, PlayerIndex) of
                 {error, _Reason} ->
                     {false, Req1, RoomID};
                 ok ->

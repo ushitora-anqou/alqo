@@ -18,12 +18,12 @@ content_types_accepted(Req, State) ->
     {[{<<"application/json">>, attack_target}], Req, State}.
 
 attack_target(Req, RoomID) ->
-    case {cowboy_session:get({player_index, RoomID}, Req), room_database:get_pid(RoomID)} of
-        {{_, Req1}, undefined} ->
+    case {cowboy_session:get({player_index, RoomID}, Req), room:exists(RoomID)} of
+        {{_, Req1}, false} ->
             {false, Req1, RoomID};
-        {{undefined, Req1}, _} ->
+        {{undefined, Req1}, true} ->
             {false, Req1, RoomID};
-        {{PlayerIndex, Req1}, Pid} ->
+        {{PlayerIndex, Req1}, true} ->
             {ok, ReqData, Req2} = cowboy_req:read_body(Req1),
             case jsone:decode(ReqData) of
                 #{
@@ -40,15 +40,7 @@ attack_target(Req, RoomID) ->
                     0 =< Guess,
                     Guess < 24
                 ->
-                    attack_target_impl(
-                        Req2,
-                        RoomID,
-                        Pid,
-                        PlayerIndex,
-                        TargetPlayer,
-                        TargetIndex,
-                        Guess
-                    );
+                    attack_target_impl(Req2, RoomID, PlayerIndex, TargetPlayer, TargetIndex, Guess);
                 _ ->
                     {false, Req2, RoomID}
             end
@@ -56,8 +48,8 @@ attack_target(Req, RoomID) ->
 
 %% Private functions
 
-attack_target_impl(Req, RoomID, Pid, PlayerIndex, TargetPlayer, TargetIndex, Guess) ->
-    case room:attack(Pid, PlayerIndex, TargetPlayer, TargetIndex, Guess) of
+attack_target_impl(Req, RoomID, PlayerIndex, TargetPlayer, TargetIndex, Guess) ->
+    case room:attack(RoomID, PlayerIndex, TargetPlayer, TargetIndex, Guess) of
         {error, Reason} ->
             {false, Req, RoomID};
         {ok, Result} ->

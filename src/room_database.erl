@@ -4,8 +4,6 @@
     start_link/0,
     stop/0,
     create_room/1,
-    get_pid/1,
-    set_pid/1,
     set_ws_pid/2,
     ws_send/3,
     ws_send_to_all_in_room/2,
@@ -20,15 +18,8 @@ start_link() ->
 stop() ->
     gen_server:call(?MODULE, stop).
 
-create_room(NumPlayers) ->
-    InitialRoomState = room:initial_state(NumPlayers),
+create_room(InitialRoomState) ->
     gen_server:call(?MODULE, {create, InitialRoomState}).
-
-get_pid(RoomID) ->
-    gproc:where(gproc_room_id(RoomID)).
-
-set_pid(RoomID) ->
-    gproc:reg(gproc_room_id(RoomID)).
 
 set_ws_pid(RoomID, PlayerIndex) ->
     gproc:reg(gproc_ws_room_id(RoomID, PlayerIndex)).
@@ -68,8 +59,6 @@ handle_call({create, RoomState}, _From, State) ->
     RoomID = list_to_binary(uuid:uuid_to_string(uuid:get_v4(), nodash)),
     % XXX assume RoomID does not duplicate
     true = ets:insert_new(?MODULE, {RoomID, RoomState}),
-    % Room should be created AFTER room state is set
-    room_sup:create_room(RoomID),
     {reply, RoomID, State};
 handle_call({set_current_state, RoomID, RoomNewState}, _From, State) ->
     ets:insert(?MODULE, {RoomID, RoomNewState}),
@@ -93,9 +82,6 @@ terminate(_Reason, _State) ->
     ok.
 
 %% Internal functions
-
-gproc_room_id(RoomID) ->
-    {n, l, {alqo_room, RoomID}}.
 
 gproc_ws_room_id(RoomID, PlayerIndex) ->
     {p, l, {alqo_ws_room, RoomID, PlayerIndex}}.

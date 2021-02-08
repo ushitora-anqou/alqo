@@ -1,26 +1,55 @@
 -module(room).
 -behaviour(gen_server).
 
--export([start_link/1, register_as_player/1, initial_state/1, attack/5, stay/2]).
+-export([
+    create_one/1,
+    start_link/1,
+    exists/1,
+    register_as_player/1,
+    attack/5,
+    stay/2,
+    state_to_json/2
+]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
 -type state() :: {not_started, integer(), integer()} | {playing, any()}.
 
+create_one(NumPlayers) ->
+    InitialRoomState = {not_started, 0, NumPlayers},
+    RoomID = room_database:create_room(InitialRoomState),
+    % Room should be created AFTER room state is set
+    room_sup:create_room(RoomID),
+    RoomID.
+
 start_link(NumPlayers) ->
     gen_server:start_link(?MODULE, NumPlayers, []).
 
-register_as_player(Pid) ->
-    gen_server:call(Pid, register_as_player).
+exists(RoomID) ->
+    get_pid(RoomID) =/= undefined.
 
-attack(Pid, PlayerIndex, TargetPlayer, TargetIndex, Guess) ->
-    gen_server:call(Pid, {attack, PlayerIndex, TargetPlayer, TargetIndex, Guess}).
+register_as_player(RoomID) ->
+    case get_pid(RoomID) of
+        undefined -> throw(room_not_found);
+        Pid -> gen_server:call(Pid, register_as_player)
+    end.
 
-stay(Pid, PlayerIndex) ->
-    gen_server:call(Pid, {stay, PlayerIndex}).
+attack(RoomID, PlayerIndex, TargetPlayer, TargetIndex, Guess) ->
+    case get_pid(RoomID) of
+        undefined -> throw(room_not_found);
+        Pid -> gen_server:call(Pid, {attack, PlayerIndex, TargetPlayer, TargetIndex, Guess})
+    end.
 
--spec initial_state(integer()) -> state().
-initial_state(NumPlayers) ->
-    {not_started, 0, NumPlayers}.
+stay(RoomID, PlayerIndex) ->
+    case get_pid(RoomID) of
+        undefined -> throw(room_not_found);
+        Pid -> gen_server:call(Pid, {stay, PlayerIndex})
+    end.
+
+state_to_json(RoomID, PlayerIndex) ->
+    case room_database:get_current_state(RoomID) of
+        undefined -> throw(room_not_found);
+        RoomState -> state_to_json_impl(RoomState, PlayerIndex)
+    end.
 
 %%% GEN_SERVER CALLBACKS
 init(RoomID) ->
@@ -45,7 +74,7 @@ handle_call(Event, From, RoomID) ->
     end.
 
 handle_cast({set_pid, RoomID}, State) ->
-    room_database:set_pid(RoomID),
+    set_pid(RoomID),
     {noreply, State};
 handle_cast(_Event, State) ->
     {noreply, State}.
@@ -60,6 +89,32 @@ terminate(_Reason, _RoomID) ->
     ok.
 
 %%% Private functions
+
+get_pid(RoomID) ->
+    gproc:where(gproc_room_id(RoomID)).
+
+set_pid(RoomID) ->
+    gproc:reg(gproc_room_id(RoomID)).
+
+gproc_room_id(RoomID) ->
+    {n, l, {alqo_room, RoomID}}.
+
+state_to_json_impl({not_started, RegisteredNumPlayers, NumPlayers}, PlayerIndex) ->
+    jsone:encode(#{
+        status => <<"not_started">>,
+        registered => RegisteredNumPlayers,
+        nplayers => NumPlayers,
+        your_status =>
+            case PlayerIndex of
+                undefined -> false;
+                _ -> true
+            end
+    });
+state_to_json_impl({playing, Board}, PlayerIndex) ->
+    jsone:encode(#{
+        status => <<"playing">>,
+        board => game:board_to_map(Board, PlayerIndex)
+    }).
 
 handle_call_impl(
     register_as_player,
