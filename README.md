@@ -1,6 +1,6 @@
 # alqo
 
-Yet another algo web app written.
+Yet another algo web app.
 
 ## REST API
 
