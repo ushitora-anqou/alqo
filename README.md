@@ -102,6 +102,8 @@ Yet another algo web app written.
 
 ## encoded board
 
+ゲームの状態を表す以下の map.
+
 - `can_stay: (stayできるならtrue, できないならfalse)`
 - `current_turn: (現在ターンを持っているプレイヤーのインデックス（1〜4）)`
 - `next_turn: (次にターンが渡るプレイヤーのインデックス)`
