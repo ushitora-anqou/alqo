@@ -4,9 +4,6 @@
     start_link/0,
     stop/0,
     create_room/1,
-    set_ws_pid/2,
-    ws_send/3,
-    ws_send_to_all_in_room/2,
     get_current_state/1,
     set_current_state/2
 ]).
@@ -21,19 +18,6 @@ stop() ->
 create_room(InitialRoomState) ->
     gen_server:call(?MODULE, {create, InitialRoomState}).
 
-set_ws_pid(RoomID, PlayerIndex) ->
-    gproc:reg(gproc_ws_room_id(RoomID, PlayerIndex)).
-
-ws_send(RoomID, PlayerIndex, Msg) ->
-    gproc:send(gproc_ws_room_id(RoomID, PlayerIndex), Msg).
-
-ws_send_to_all_in_room(RoomID, Msg) ->
-    NumPlayers = get_num_players(RoomID),
-    lists:foreach(
-        fun(PI) -> ws_send(RoomID, PI, Msg) end,
-        [undefined | lists:seq(1, NumPlayers)]
-    ).
-
 get_current_state(RoomID) ->
     case ets:lookup(?MODULE, RoomID) of
         [] -> undefined;
@@ -42,13 +26,6 @@ get_current_state(RoomID) ->
 
 set_current_state(RoomID, RoomNewState) ->
     gen_server:call(?MODULE, {set_current_state, RoomID, RoomNewState}).
-
-get_num_players(RoomID) ->
-    case get_current_state(RoomID) of
-        undefined -> throw(room_not_found);
-        {not_started, _, NumPlayers} -> NumPlayers;
-        {playing, Board} -> game:num_players(Board)
-    end.
 
 %% GEN_SERVER CALLBACKS
 init(_) ->
@@ -82,6 +59,3 @@ terminate(_Reason, _State) ->
     ok.
 
 %% Internal functions
-
-gproc_ws_room_id(RoomID, PlayerIndex) ->
-    {p, l, {alqo_ws_room, RoomID, PlayerIndex}}.

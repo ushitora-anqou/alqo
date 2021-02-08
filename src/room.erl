@@ -8,7 +8,8 @@
     register_as_player/1,
     attack/5,
     stay/2,
-    state_to_json/2
+    state_to_json/2,
+    get_num_players/1
 ]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
@@ -49,6 +50,13 @@ state_to_json(RoomID, PlayerIndex) ->
     case room_database:get_current_state(RoomID) of
         undefined -> throw(room_not_found);
         RoomState -> state_to_json_impl(RoomState, PlayerIndex)
+    end.
+
+get_num_players(RoomID) ->
+    case room_database:get_current_state(RoomID) of
+        undefined -> throw(room_not_found);
+        {not_started, _, NumPlayers} -> NumPlayers;
+        {playing, Board} -> game:num_players(Board)
     end.
 
 %%% GEN_SERVER CALLBACKS
@@ -123,18 +131,18 @@ handle_call_impl(
     {not_started, RegisteredNumPlayers, NumPlayers}
 ) when RegisteredNumPlayers < NumPlayers ->
     NewPlayerIndex = RegisteredNumPlayers + 1,
-    room_database:ws_send_to_all_in_room(RoomID, {player_registered, NewPlayerIndex}),
+    ws_room:send_to_all_in_room(RoomID, {player_registered, NewPlayerIndex}),
     case RegisteredNumPlayers + 1 =:= NumPlayers of
         true ->
             Board = game:choose_attacker_card(game:new_board(NumPlayers)),
 
             % Send event game_started
-            room_database:ws_send_to_all_in_room(RoomID, {game_started, Board}),
+            ws_room:send_to_all_in_room(RoomID, {game_started, Board}),
             % Send each hand
             lists:foreach(
                 fun(PI) ->
                     HandNums = [N || {N, _H} <- game:hand(Board, PI)],
-                    room_database:ws_send(RoomID, PI, {your_hand, HandNums})
+                    ws_room:send(RoomID, PI, {your_hand, HandNums})
                 end,
                 lists:seq(1, NumPlayers)
             ),
@@ -163,7 +171,7 @@ handle_call_impl(
                 Board2 = choose_attacker_card_if_possible(Board1),
 
                 % Send attacked event
-                room_database:ws_send_to_all_in_room(
+                ws_room:send_to_all_in_room(
                     RoomID,
                     {attacked, Board2, TargetPlayer, TargetIndex, Guess, Result}
                 ),
@@ -173,7 +181,7 @@ handle_call_impl(
                     not_finished ->
                         ok;
                     {finished, Winner} ->
-                        room_database:ws_send_to_all_in_room(RoomID, {game_finished, Winner})
+                        ws_room:send_to_all_in_room(RoomID, {game_finished, Winner})
                 end,
 
                 % Send your_turn event if turn changed
@@ -202,7 +210,7 @@ handle_call_impl({stay, PlayerIndex}, _From, RoomID, {playing, Board}) ->
             Board2 = choose_attacker_card_if_possible(Board1),
 
             % Send stayed event
-            room_database:ws_send_to_all_in_room(RoomID, {stayed, Board2}),
+            ws_room:send_to_all_in_room(RoomID, {stayed, Board2}),
             % Send your_turn event
             ws_send_your_turn(RoomID, Board2),
 
@@ -234,7 +242,7 @@ state_has_finished(_) ->
     false.
 
 ws_send_your_turn(RoomID, Board) ->
-    room_database:ws_send(
+    ws_room:send(
         RoomID,
         game:current_turn(Board),
         {your_turn,

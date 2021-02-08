@@ -1,5 +1,19 @@
 -module(ws_room).
+-behaviour(cowboy_handler).
+-export([send/3, send_to_all_in_room/2]).
 -export([init/2, websocket_init/1, websocket_handle/2, websocket_info/2]).
+
+send(RoomID, PlayerIndex, Msg) ->
+    gproc:send(gproc_ws_room_id(RoomID, PlayerIndex), Msg).
+
+send_to_all_in_room(RoomID, Msg) ->
+    NumPlayers = room:get_num_players(RoomID),
+    lists:foreach(
+        fun(PI) -> send(RoomID, PI, Msg) end,
+        [undefined | lists:seq(1, NumPlayers)]
+    ).
+
+%% COWBOY HANDLER
 
 init(Req, _State) ->
     RoomID = cowboy_req:binding(roomid, Req),
@@ -7,7 +21,7 @@ init(Req, _State) ->
     {cowboy_websocket, Req1, {RoomID, PlayerIndex}}.
 
 websocket_init(State = {RoomID, PlayerIndex}) ->
-    room_database:set_ws_pid(RoomID, PlayerIndex),
+    set_ws_pid(RoomID, PlayerIndex),
     {[], State}.
 
 websocket_handle(_Data, State) ->
@@ -46,3 +60,11 @@ websocket_info({game_finished, Winner}, State) ->
     {[{text, jsone:encode([game_finished, Winner])}], State};
 websocket_info(_Info, State) ->
     {[], State}.
+
+%% internal functions
+
+set_ws_pid(RoomID, PlayerIndex) ->
+    gproc:reg(gproc_ws_room_id(RoomID, PlayerIndex)).
+
+gproc_ws_room_id(RoomID, PlayerIndex) ->
+    {p, l, {alqo_ws_room, RoomID, PlayerIndex}}.
