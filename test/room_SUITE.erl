@@ -262,7 +262,7 @@ attack_and_stay(_Config) ->
 
     #{<<"result">> := true} = attack(RoomURL, Pl1Cookie, 2, 1, CardNum2_1),
     % Stay success
-    #{<<"result">> := true} = stay(RoomURL, Pl1Cookie),
+    stay(RoomURL, Pl1Cookie),
 
     #{
         <<"board">> := #{
@@ -406,7 +406,7 @@ websocket_observers_stay(_Config) ->
             ok
     end,
 
-    #{<<"result">> := true} = stay(RoomURL, Pl1Cookie),
+    stay(RoomURL, Pl1Cookie),
     case ws_wait_json() of
         [<<"stayed">>, _] -> ok
     end.
@@ -532,15 +532,13 @@ attack(RoomURL, Cookie, TargetPlayer, TargetIndex, Guess) ->
     jsone:decode(Body).
 
 stay(RoomURL, Cookie) ->
-    {ok, 200, _, ClientRef} = request(
+    {ok, 204, _, ClientRef} = request(
         post,
         [RoomURL, <<"/stay">>],
         "",
         Cookie,
         []
-    ),
-    {ok, Body} = hackney:body(ClientRef),
-    jsone:decode(Body).
+    ).
 
 get_hand_of(RoomURL, Cookie, HandIndex) ->
     #{<<"board">> := #{<<"your_hand">> := Hand}} = get_room_state(RoomURL, Cookie),

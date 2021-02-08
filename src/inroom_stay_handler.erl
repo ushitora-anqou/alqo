@@ -28,8 +28,7 @@ stay(Req, RoomID) ->
                 {error, _Reason} ->
                     {false, Req1, RoomID};
                 ok ->
-                    Req2 = cowboy_req:set_resp_body(jsone:encode(#{result => true}), Req1),
-                    {true, Req2, RoomID}
+                    {true, Req1, RoomID}
             end
     end.
 
