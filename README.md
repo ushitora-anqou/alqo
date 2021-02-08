@@ -19,8 +19,7 @@ Yet another algo web app.
 - POST `/room`
   - 新しい room を作る。
   - parameters
-    - `nplayers` プレイヤーの数（2〜4）
-      - メモ：そのうち`num_players`に変更するかも
+    - `num_players` プレイヤーの数（2〜4）
   - responses
     - 201 Created
       - header の location に新しくできた room の URL が格納される
@@ -53,7 +52,7 @@ Yet another algo web app.
   - アタックを行う
   - parameters
     - `target_player: (アタックするプレイヤーのインデックス)`
-    - `target_index: (アタックするカードのインデックス。そのプレイヤーが持っているカードで何番目に小さいか。)`
+    - `target_hand_index: (アタックするカードのインデックス。そのプレイヤーが持っているカードで何番目に小さいか。)`
     - `guess: (予想した値)`
   - responses
     - 200 OK
@@ -63,9 +62,8 @@ Yet another algo web app.
   - parameters
     - なし
   - responses
-    - 200 OK
-      - `result: true`
-        - メモ：この結果は必要ないので、そのうち無くすかも。
+    - 204 No Content
+      - 成功
 
 ## WebSocket API
 
@@ -92,7 +90,6 @@ Yet another algo web app.
     - `board: (encoded board)`
     - `target_player: (攻撃されたプレイヤーのインデックス)`
     - `target_hand_index: (攻撃された手札のインデックス)`
-      - メモ：`/attack`の`target_index`と一貫性がないので直したい。
     - `guess: (予測した値)`
     - `result: (アタックの結果。成功していればtrue, 失敗していればfalse)`
 - `["stayed", (encoded board)]`
