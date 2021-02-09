@@ -2,6 +2,16 @@
 
 Yet another algo web app.
 
+## ビルドと実行
+
+[Rebar3](https://github.com/erlang/rebar3)を使う：
+
+```sh
+$ rebar3 shell
+% 終了する時
+q().
+```
+
 ## REST API
 
 ### 概要
