@@ -24,9 +24,9 @@ q().
 
 ### エンドポイント
 
-- GET `/`
+- `GET /`
   - 多分ここで静的ファイルを配信する
-- POST `/room`
+- `POST /room`
   - 新しい room を作る。
   - parameters
     - `num_players` プレイヤーの数（2〜4）
@@ -35,7 +35,7 @@ q().
       - header の location に新しくできた room の URL が格納される
         - e.g., `/room/af4b58eac16c4b128064771633ab233d`
         - 以下では `/room/:roomid` と書く
-- GET `/room/:roomid`
+- `GET /room/:roomid`
   - room の状況を返す
   - parameters
     - なし
@@ -51,14 +51,14 @@ q().
         - JSON map
           - `status: "playing"`
           - `board: (encoded board)`
-- POST `/room/:roomid/register`
+- `POST /room/:roomid/register`
   - room にプレイヤーとして登録する。
   - parameters
     - なし
   - responses
     - 201 Created
       - 成功
-- POST `/room/:roomid/attack`
+- `POST /room/:roomid/attack`
   - アタックを行う
   - parameters
     - `target_player: (アタックするプレイヤーのインデックス)`
@@ -67,7 +67,7 @@ q().
   - responses
     - 200 OK
       - `result: (成功すればtrue, 失敗すればfalse)`
-- POST `/room/:roomid/stay`
+- `POST /room/:roomid/stay`
   - ステイを行う
   - parameters
     - なし
@@ -117,8 +117,8 @@ q().
 - `num_players: (プレイヤーの人数)`
 - `winner: (ゲームが終了している場合は、勝利したプレイヤーのインデックス。そうでない場合はnull)`
 - `hands: プレイヤーが持っているカードの、他人からの見た目`
-  - `hands[i][j][0]: プレイヤーiのj番目に小さいカードの数（ただし裏向きの場合はそのmod 2）`
-  - `hands[i][j][1]: プレイヤーiのj番目に小さいカードが裏向きならtrue, 表向きならfalse`
+  - `hands[i][j][0]: プレイヤー(i+1)の(j+1)番目に小さいカードの数（ただし裏向きの場合はそのmod 2）`
+  - `hands[i][j][1]: プレイヤー(i+1)の(j+1)番目に小さいカードが裏向きならtrue, 表向きならfalse`
 - `deck_top: 山札の一番上のカードの数 mod 2`
 - `attacker_card: 現在攻撃に使用しているカード`
   - 存在しない（選ぶ必要がある）場合: `null`
@@ -130,5 +130,5 @@ q().
 
 - `your_player_index: (自分のプレイヤーインデックス)`
 - `your_hand: (自分の手札の数のリスト)`
-  - `your_hand[i]: 自分が持っている手札のうち、i番目に小さいカードの数`
+  - `your_hand[i]: 自分が持っている手札のうち、(i+1)番目に小さいカードの数`
 - `your_attacker_card_from_deck: attacker cardが山札からとったものの場合、そのカードの数。そうでなければnull`
