@@ -13,7 +13,8 @@ groups() ->
             websocket_players,
             when_room_died,
             game_finished_winner,
-            attack_and_stay
+            attack_and_stay,
+            choose_attacker_card_from_hand
         ]}
     ].
 
@@ -271,6 +272,59 @@ attack_and_stay(_Config) ->
             <<"current_turn">> := 2
         }
     } = get_room_state(RoomURL),
+
+    ok.
+
+choose_attacker_card_from_hand(_Config) ->
+    RoomURL = create_room(2),
+
+    Pl1Cookie = register_as_player(RoomURL),
+    Pl2Cookie = register_as_player(RoomURL),
+
+    lists:foreach(
+        fun(_I) ->
+            TargetHandIndex1 = find_hidden_hand(RoomURL, 2),
+            TargetNum1 = get_hand_of(RoomURL, Pl2Cookie, TargetHandIndex1),
+            #{<<"result">> := false} = attack(
+                RoomURL,
+                Pl1Cookie,
+                2,
+                TargetHandIndex1,
+                card_different_from(TargetNum1)
+            ),
+            TargetHandIndex2 = find_hidden_hand(RoomURL, 1),
+            TargetNum2 = get_hand_of(RoomURL, Pl1Cookie, TargetHandIndex2),
+            #{<<"result">> := false} = attack(
+                RoomURL,
+                Pl2Cookie,
+                1,
+                TargetHandIndex2,
+                card_different_from(TargetNum2)
+            )
+        end,
+        lists:seq(1, 8)
+    ),
+
+    #{<<"board">> := #{<<"attacker_card">> := null, <<"your_attacker_card_from_deck">> := null}} = get_room_state(
+        RoomURL,
+        Pl1Cookie
+    ),
+    HI = find_hidden_hand(RoomURL, 1),
+    choose_attacker_card(RoomURL, Pl1Cookie, HI),
+    #{<<"board">> := #{<<"attacker_card">> := [2, HI]}} = get_room_state(RoomURL),
+    TargetHandIndex3 = find_hidden_hand(RoomURL, 2),
+    TargetNum3 = get_hand_of(RoomURL, Pl2Cookie, TargetHandIndex3),
+    #{<<"result">> := false} = attack(
+        RoomURL,
+        Pl1Cookie,
+        2,
+        TargetHandIndex3,
+        card_different_from(TargetNum3)
+    ),
+    #{<<"board">> := #{<<"attacker_card">> := null, <<"your_attacker_card_from_deck">> := null}} = get_room_state(
+        RoomURL,
+        Pl2Cookie
+    ),
 
     ok.
 
@@ -542,9 +596,29 @@ stay(RoomURL, Cookie) ->
         []
     ).
 
+choose_attacker_card(RoomURL, Cookie, HandIndex) ->
+    {ok, 204, _, _ClientRef} = request(
+        post,
+        [RoomURL, <<"/choose_attacker_card">>],
+        jsone:encode(#{hand_index => HandIndex}),
+        Cookie,
+        []
+    ).
+
 get_hand_of(RoomURL, Cookie, HandIndex) ->
     #{<<"board">> := #{<<"your_hand">> := Hand}} = get_room_state(RoomURL, Cookie),
     lists:nth(HandIndex, Hand).
+
+find_hidden_hand(RoomURL, TargetPlayer) ->
+    #{<<"board">> := #{<<"hands">> := Hands}} = get_room_state(RoomURL),
+    Hand = lists:nth(TargetPlayer, Hands),
+    case util:find_first_index(fun([_, H]) -> H end, Hand) of
+        false ->
+            throw(invalid_board);
+        HandIndex ->
+            [_Color, true] = lists:nth(HandIndex, Hand),
+            HandIndex
+    end.
 
 card_different_from(23) -> 0;
 card_different_from(N) -> N + 1.

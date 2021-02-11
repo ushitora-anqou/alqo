@@ -19,7 +19,8 @@ start(_StartType, _StartArgs) ->
             {<<"/room/:roomid/ws">>, ws_room, []},
             {<<"/room/:roomid/register">>, inroom_register_handler, []},
             {<<"/room/:roomid/attack">>, inroom_attack_handler, []},
-            {<<"/room/:roomid/stay">>, inroom_stay_handler, []}
+            {<<"/room/:roomid/stay">>, inroom_stay_handler, []},
+            {<<"/room/:roomid/choose_attacker_card">>, inroom_choose_attacker_card_handler, []}
         ]}
     ]),
     {ok, _} = cowboy:start_clear(

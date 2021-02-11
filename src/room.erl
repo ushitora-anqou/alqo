@@ -9,7 +9,8 @@
     attack/5,
     stay/2,
     state_to_json/2,
-    get_num_players/1
+    get_num_players/1,
+    choose_attacker_card/3
 ]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
@@ -44,6 +45,12 @@ stay(RoomID, PlayerIndex) ->
     case get_pid(RoomID) of
         undefined -> throw(room_not_found);
         Pid -> gen_server:call(Pid, {stay, PlayerIndex})
+    end.
+
+choose_attacker_card(RoomID, PlayerIndex, HandIndex) ->
+    case get_pid(RoomID) of
+        undefined -> throw(room_not_found);
+        Pid -> gen_server:call(Pid, {choose_attacker_card, PlayerIndex, HandIndex})
     end.
 
 state_to_json(RoomID, PlayerIndex) ->
@@ -217,6 +224,19 @@ handle_call_impl({stay, PlayerIndex}, _From, RoomID, {playing, Board}) ->
             {reply, ok, {playing, Board2}}
     end;
 handle_call_impl({stay, _}, _From, _RoomID, State) ->
+    {reply, {error, not_started}, State};
+%
+handle_call_impl({choose_attacker_card, PlayerIndex, HandIndex}, _From, _RoomID, {playing, Board}) ->
+    case {PlayerIndex =:= game:current_turn(Board), game:attacker_card(Board)} of
+        {true, undefined} ->
+            NewBoard = game:choose_attacker_card(Board, HandIndex),
+            {reply, ok, {playing, NewBoard}};
+        {false, _} ->
+            {reply, {error, not_current_turn}, {playing, Board}};
+        _ ->
+            {reply, {error, attacker_card_already_set}, {playing, Board}}
+    end;
+handle_call_impl({choose_attacker_card, _, _}, _From, _RoomID, State) ->
     {reply, {error, not_started}, State};
 %
 handle_call_impl(_Event, _From, _RoomID, State) ->
