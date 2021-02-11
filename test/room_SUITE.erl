@@ -101,6 +101,8 @@ create_register_get(_Config) ->
         }
     } = Body1,
     Board1 = maps:get(<<"board">>, Body1),
+    4 = length(maps:get(<<"hands">>, Board1)),
+    2 = length(lists:nth(1, maps:get(<<"hands">>, Board1))),
     ok =
         case
             {maps:is_key(<<"your_player_index">>, Board1), maps:is_key(<<"your_hand">>, Board1),
