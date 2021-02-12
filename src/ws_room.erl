@@ -56,6 +56,8 @@ websocket_info({attacked, NewBoard, TargetPlayer, TargetHandIndex, Guess, Result
         State};
 websocket_info({stayed, NewBoard}, State) ->
     {[{text, jsone:encode([stayed, game:board_to_map(NewBoard)])}], State};
+websocket_info({attacker_card_chosen, HandIndex}, State) ->
+    {[{text, jsone:encode([attacker_card_chosen, HandIndex])}], State};
 websocket_info({game_finished, Winner}, State) ->
     {[{text, jsone:encode([game_finished, Winner])}], State};
 websocket_info(_Info, State) ->

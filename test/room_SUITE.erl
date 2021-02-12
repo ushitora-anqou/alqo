@@ -277,9 +277,22 @@ attack_and_stay(_Config) ->
 
 choose_attacker_card_from_hand(_Config) ->
     RoomURL = create_room(2),
+    {ok, ConnPid} = gun:open("localhost", 8080),
+    {ok, _Protocol} = gun:await_up(ConnPid),
+    gun:ws_upgrade(ConnPid, [RoomURL, <<"/ws">>]),
+    receive
+        {gun_upgrade, _ConnPid, _StreamRef, [<<"websocket">>], _Headers} ->
+            ok
+    end,
+    % Connection established
 
     Pl1Cookie = register_as_player(RoomURL),
+    [<<"player_registered">>, 1] = ws_wait_json(),
     Pl2Cookie = register_as_player(RoomURL),
+    [<<"player_registered">>, 2] = ws_wait_json(),
+
+    [<<"game_started">>, _Board] = ws_wait_json(),
+    % game started
 
     lists:foreach(
         fun(_I) ->
@@ -292,6 +305,8 @@ choose_attacker_card_from_hand(_Config) ->
                 TargetHandIndex1,
                 card_different_from(TargetNum1)
             ),
+            [<<"attacked">>, _] = ws_wait_json(),
+
             TargetHandIndex2 = find_hidden_hand(RoomURL, 1),
             TargetNum2 = get_hand_of(RoomURL, Pl1Cookie, TargetHandIndex2),
             #{<<"result">> := false} = attack(
@@ -300,7 +315,8 @@ choose_attacker_card_from_hand(_Config) ->
                 1,
                 TargetHandIndex2,
                 card_different_from(TargetNum2)
-            )
+            ),
+            [<<"attacked">>, _] = ws_wait_json()
         end,
         lists:seq(1, 8)
     ),
@@ -311,6 +327,7 @@ choose_attacker_card_from_hand(_Config) ->
     ),
     HI = find_hidden_hand(RoomURL, 1),
     choose_attacker_card(RoomURL, Pl1Cookie, HI),
+    [<<"attacker_card_chosen">>, HI] = ws_wait_json(),
     #{<<"board">> := #{<<"attacker_card">> := [2, HI]}} = get_room_state(RoomURL),
     TargetHandIndex3 = find_hidden_hand(RoomURL, 2),
     TargetNum3 = get_hand_of(RoomURL, Pl2Cookie, TargetHandIndex3),

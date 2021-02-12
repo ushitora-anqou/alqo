@@ -226,10 +226,14 @@ handle_call_impl({stay, PlayerIndex}, _From, RoomID, {playing, Board}) ->
 handle_call_impl({stay, _}, _From, _RoomID, State) ->
     {reply, {error, not_started}, State};
 %
-handle_call_impl({choose_attacker_card, PlayerIndex, HandIndex}, _From, _RoomID, {playing, Board}) ->
+handle_call_impl({choose_attacker_card, PlayerIndex, HandIndex}, _From, RoomID, {playing, Board}) ->
     case {PlayerIndex =:= game:current_turn(Board), game:attacker_card(Board)} of
         {true, undefined} ->
             NewBoard = game:choose_attacker_card(Board, HandIndex),
+
+            % Send attacker_card_chosen event
+            ws_room:send_to_all_in_room(RoomID, {attacker_card_chosen, HandIndex}),
+
             {reply, ok, {playing, NewBoard}};
         {false, _} ->
             {reply, {error, not_current_turn}, {playing, Board}};
