@@ -57,7 +57,7 @@ q().
   - parameters
     - なし
   - responses
-    - 201 Created
+    - 204 No Content
       - 成功
 - `POST /room/:roomid/attack`
   - アタックを行う
