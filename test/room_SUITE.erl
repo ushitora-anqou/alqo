@@ -43,7 +43,7 @@ when_room_died(_Config) ->
                 error;
             Pid ->
                 exit(Pid, kill),
-                timer:sleep(10),
+                timer:sleep(20),
                 case gproc:where({n, l, {alqo_room, RoomID}}) of
                     undefined -> error;
                     NewPid when NewPid =/= Pid -> ok
@@ -53,7 +53,7 @@ when_room_died(_Config) ->
 create_register_get(_Config) ->
     RoomURL = create_room(4),
 
-    {ok, 201, RespHd1, _} = hackney:post(
+    {ok, 204, RespHd1, _} = hackney:post(
         [RoomURL, <<"/register">>],
         [{<<"Content-Type">>, <<"application/json">>}],
         ""
@@ -65,18 +65,18 @@ create_register_get(_Config) ->
         ""
     ),
 
-    {ok, 201, RespHd2, _} = hackney:post(
+    {ok, 204, RespHd2, _} = hackney:post(
         [RoomURL, <<"/register">>],
         [{<<"Content-Type">>, <<"application/json">>}],
         ""
     ),
     {_, Pl2Cookie} = lists:keyfind(<<"set-cookie">>, 1, RespHd2),
-    {ok, 201, _, _} = hackney:post(
+    {ok, 204, _, _} = hackney:post(
         [RoomURL, <<"/register">>],
         [{<<"Content-Type">>, <<"application/json">>}],
         ""
     ),
-    {ok, 201, _, _} = hackney:post(
+    {ok, 204, _, _} = hackney:post(
         [RoomURL, <<"/register">>],
         [{<<"Content-Type">>, <<"application/json">>}],
         ""
@@ -555,7 +555,7 @@ ws_wait_json(ConnPid) ->
 ws_wait_json() -> ws_wait_json(undefined).
 
 create_room(NumPlayers) ->
-    {ok, 201, RespHd, ClientRef} = hackney:post(
+    {ok, 201, RespHd, _ClientRef} = hackney:post(
         "http://localhost:8080/room",
         [{<<"Content-Type">>, <<"application/json">>}],
         jsone:encode(#{num_players => NumPlayers})
@@ -564,7 +564,7 @@ create_room(NumPlayers) ->
     [<<"http://localhost:8080">>, RoomURL].
 
 register_as_player(RoomURL) ->
-    {ok, 201, RespHd, _} = hackney:post(
+    {ok, 204, RespHd, _} = hackney:post(
         [RoomURL, <<"/register">>],
         [{<<"Content-Type">>, <<"application/json">>}],
         ""
@@ -605,7 +605,7 @@ attack(RoomURL, Cookie, TargetPlayer, TargetIndex, Guess) ->
     jsone:decode(Body).
 
 stay(RoomURL, Cookie) ->
-    {ok, 204, _, ClientRef} = request(
+    {ok, 204, _, _ClientRef} = request(
         post,
         [RoomURL, <<"/stay">>],
         "",
