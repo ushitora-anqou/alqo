@@ -75,6 +75,14 @@ q().
   - responses
     - 204 No Content
       - 成功
+- `POST /room/:roomid/choose_attacker_card`
+  - attacker card を手札から選ぶ。
+  - 山札が存在している場合は attacker card は自動的に呼ばれるため、このエンドポイントを明示的に呼ぶ必要はない。
+  - parameters
+    - `hand_index: (選ぶカードの手札に置ける位置（何番目に小さいか）)`
+  - responses
+    - 204 No Content
+      - 成功
 
 ## WebSocket API
 
@@ -105,6 +113,8 @@ q().
     - `result: (アタックの結果。成功していればtrue, 失敗していればfalse)`
 - `["stayed", (encoded board)]`
   - ステイが行われた。
+- `["attacker_card_chosen", (選ばれた手札のインデックス)]`
+  - attacker card が選ばれた。
 - `["game_finished", (勝利したプレイヤーのインデックス)]`
   - ゲームが終了し、勝者が決まった。
 
@@ -122,8 +132,7 @@ q().
   - `hands[i][j][1]: プレイヤー(i+1)の(j+1)番目に小さいカードが裏向きならtrue, 表向きならfalse`
 - `deck_top: 山札の一番上のカードの数 mod 2`
 - `attacker_card: 現在攻撃に使用しているカード`
-  - 存在しない（選ぶ必要がある）場合: `null`
-    - 現在選ぶエンドポイントは存在しない
+  - 存在しない（`/room/:roomid/choose_attacker_card`で選ぶ必要がある）場合: `null`
   - 山札からとったカードの場合: `[1, (そのカードの数 mod 2)]`
   - 手札からとったカードの場合: `[2, (そのカードの手札における添字（何番目に小さいか）)]`
 
