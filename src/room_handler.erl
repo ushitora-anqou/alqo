@@ -90,7 +90,8 @@ accept_json(Req, State = #state{route = {<<"POST">>, undefined, undefined}}) ->
             is_integer(NumPlayers), 2 =< NumPlayers, NumPlayers =< 4
         ->
             RoomID = room:create_one(NumPlayers),
-            {{true, [<<"/room/">>, RoomID]}, Req1, State};
+            Req2 = set_json_body(Req1, #{roomid => RoomID}),
+            {true, Req2, State};
         _ ->
             {false, Req1, State}
     end;
@@ -192,3 +193,5 @@ accept_json(
     end.
 
 %% Private functions
+set_json_body(Req, Src) ->
+    cowboy_req:set_resp_body(jsone:encode(Src), Req).
