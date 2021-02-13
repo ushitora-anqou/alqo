@@ -27,16 +27,17 @@ q().
 
 - `GET /`
   - 多分ここで静的ファイルを配信する
-- `POST /room`
+- `POST /api/v1/room`
   - 新しい room を作る。
   - parameters
     - `num_players` プレイヤーの数（2〜4）
   - responses
-    - 201 Created
-      - header の location に新しくできた room の URL が格納される
-        - e.g., `/room/af4b58eac16c4b128064771633ab233d`
-        - 以下では `/room/:roomid` と書く
-- `GET /room/:roomid`
+    - 200 OK
+      - JSON map
+        - `roomid: (新しくできたroomのID)`
+          - e.g., `af4b58eac16c4b128064771633ab233d`
+          - 以下では `:roomid` と書く
+- `GET /api/v1/room/:roomid`
   - room の状況を返す
   - parameters
     - なし
@@ -52,14 +53,14 @@ q().
         - JSON map
           - `status: "playing"`
           - `board: (encoded board)`
-- `POST /room/:roomid/register`
+- `POST /api/v1/room/:roomid/register`
   - room にプレイヤーとして登録する。
   - parameters
     - なし
   - responses
     - 204 No Content
       - 成功
-- `POST /room/:roomid/attack`
+- `POST /api/v1/room/:roomid/attack`
   - アタックを行う
   - parameters
     - `target_player: (アタックするプレイヤーのインデックス)`
@@ -68,14 +69,14 @@ q().
   - responses
     - 200 OK
       - `result: (成功すればtrue, 失敗すればfalse)`
-- `POST /room/:roomid/stay`
+- `POST /api/v1/room/:roomid/stay`
   - ステイを行う
   - parameters
     - なし
   - responses
     - 204 No Content
       - 成功
-- `POST /room/:roomid/choose_attacker_card`
+- `POST /api/v1/room/:roomid/choose_attacker_card`
   - attacker card を手札から選ぶ。
   - 山札が存在している場合は attacker card は自動的に呼ばれるため、このエンドポイントを明示的に呼ぶ必要はない。
   - parameters
