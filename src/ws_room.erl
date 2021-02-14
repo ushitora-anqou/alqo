@@ -18,7 +18,7 @@ send_to_all_in_room(RoomID, Msg) ->
 init(Req, _State) ->
     RoomID = cowboy_req:binding(roomid, Req),
     {PlayerIndex, Req1} = cowboy_session:get({player_index, RoomID}, Req),
-    {cowboy_websocket, Req1, {RoomID, PlayerIndex}}.
+    {cowboy_websocket, Req1, {RoomID, PlayerIndex}, #{idle_timeout => infinity}}.
 
 websocket_init(State = {RoomID, PlayerIndex}) ->
     set_ws_pid(RoomID, PlayerIndex),
