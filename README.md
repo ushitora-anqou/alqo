@@ -48,7 +48,7 @@ q().
           - `status: "not_started"`
           - `registered: (いま登録しているプレイヤーの数)`
           - `nplayers: (/room で作ったときに指定したプレイヤーの数)`
-          - `your_status: (registerしていれば1, そうでなければ0)}`
+          - `your_index: (registerしていれば自分のインデックス, そうでなければnull)}`
       - ゲームが始まっている時
         - JSON map
           - `status: "playing"`

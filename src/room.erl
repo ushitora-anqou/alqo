@@ -119,10 +119,10 @@ state_to_json_impl({not_started, RegisteredNumPlayers, NumPlayers}, PlayerIndex)
         status => <<"not_started">>,
         registered => RegisteredNumPlayers,
         num_players => NumPlayers,
-        your_status =>
+        your_index =>
             case PlayerIndex of
-                undefined -> false;
-                _ -> true
+                undefined -> null;
+                _ -> PlayerIndex
             end
     });
 state_to_json_impl({playing, Board}, PlayerIndex) ->
