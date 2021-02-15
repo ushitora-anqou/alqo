@@ -1,6 +1,8 @@
 -module(room).
 -behaviour(gen_server).
 
+-include("game.hrl").
+
 -export([
     create_one/1,
     start_link/1,
@@ -148,7 +150,7 @@ handle_call_impl(
             % Send each hand
             lists:foreach(
                 fun(PI) ->
-                    HandNums = [N || {N, _H} <- game:hand(Board, PI)],
+                    HandNums = [C#card.num || C <- game:hand(Board, PI)],
                     ws_room:send(RoomID, PI, {your_hand, HandNums})
                 end,
                 lists:seq(1, NumPlayers)
@@ -247,7 +249,7 @@ handle_call_impl(_Event, _From, _RoomID, State) ->
     {noreply, State}.
 
 choose_attacker_card_if_possible(Board) ->
-    case {game:attacker_card(Board), game:get_deck_top_from_others(Board)} of
+    case {game:attacker_card(Board), game:deck_top(Board)} of
         {undefined, undefined} ->
             % Need explicitly choosing
             Board;
@@ -272,6 +274,6 @@ ws_send_your_turn(RoomID, Board) ->
         {your_turn,
             case game:attacker_card(Board) of
                 undefined -> null;
-                {deck, N} -> N
+                {deck, #card{num = N}} -> N
             end}
     ).

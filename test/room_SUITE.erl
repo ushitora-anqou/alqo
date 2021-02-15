@@ -114,8 +114,8 @@ create_register_get(_Config) ->
         end,
     ok =
         case Board1 of
-            #{<<"attacker_card">> := [1, 0]} -> ok;
-            #{<<"attacker_card">> := [1, 1]} -> ok
+            #{<<"attacker_card">> := [1, [0, true, _]]} -> ok;
+            #{<<"attacker_card">> := [1, [1, true, _]]} -> ok
         end,
 
     % View from logged-in user 1
@@ -135,7 +135,7 @@ create_register_get(_Config) ->
     Board2 = maps:get(<<"board">>, Body2),
     case Board2 of
         #{
-            <<"attacker_card">> := [1, AttackerCard2],
+            <<"attacker_card">> := [1, [AttackerCard2, true, _]],
             <<"your_player_index">> := 1,
             <<"your_hand">> := MyHand2,
             <<"your_attacker_card_from_deck">> := MyAttackerCardFromDeck
@@ -160,7 +160,7 @@ create_register_get(_Config) ->
     Board3 = maps:get(<<"board">>, Body3),
     case Board3 of
         #{
-            <<"attacker_card">> := [1, AttackerCard3],
+            <<"attacker_card">> := [1, [AttackerCard3, true, _]],
             <<"your_player_index">> := 2,
             <<"your_hand">> := MyHand3,
             <<"your_attacker_card_from_deck">> := null
@@ -630,11 +630,11 @@ get_hand_of(RoomURL, Cookie, HandIndex) ->
 find_hidden_hand(RoomURL, TargetPlayer) ->
     #{<<"board">> := #{<<"hands">> := Hands}} = get_room_state(RoomURL),
     Hand = lists:nth(TargetPlayer, Hands),
-    case util:find_first_index(fun([_, H]) -> H end, Hand) of
+    case util:find_first_index(fun([_, H, _]) -> H end, Hand) of
         false ->
             throw(invalid_board);
         HandIndex ->
-            [_Color, true] = lists:nth(HandIndex, Hand),
+            [_Color, true, _] = lists:nth(HandIndex, Hand),
             HandIndex
     end.
 

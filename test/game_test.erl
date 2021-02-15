@@ -1,4 +1,6 @@
 -module(game_test).
+
+-include("game.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(setup(F), {setup, fun start/0, fun stop/1, F}).
@@ -64,16 +66,14 @@ scenario1(_) ->
     {success, B106} = game:attack(B105, 2, 12, 23),
     [
         % correct hand?
-        ?_assertEqual(game:hand(B1, 1), [{4, true}, {10, true}, {18, true}, {21, true}]),
-        ?_assertEqual(game:hand(B1, 2), [{1, true}, {15, true}, {17, true}, {23, true}]),
+        ?_assertEqual(cards2nums(game:hand(B1, 1)), [4, 10, 18, 21]),
+        ?_assertEqual(cards2nums(game:hand(B1, 2)), [1, 15, 17, 23]),
         % correct deck?
-        ?_assertEqual(game:get_deck_top_from_others(B1), 0),
-        ?_assertEqual(game:get_deck_top_from_others(B100), undefined),
+        ?_assertMatch(#card{num = N} when N rem 2 =:= 0, game:deck_top(B1)),
+        ?_assertMatch(undefined, game:deck_top(B100)),
         % correct attacker card?
-        ?_assertEqual(game:attacker_card(B2), {deck, 14}),
-        ?_assertEqual(game:attacker_card_from_others(B2), {deck, 0}),
-        ?_assertEqual(game:attacker_card(B101), {hand, 1}),
-        ?_assertEqual(game:attacker_card_from_others(B101), {hand, 1}),
+        ?_assertMatch({deck, #card{num = 14}}, game:attacker_card(B2)),
+        ?_assertMatch({hand, 1}, game:attacker_card(B101)),
         % correct turn?
         ?_assertEqual(game:current_turn(B1), 1),
         ?_assertEqual(game:current_turn(B2), 1),
@@ -91,11 +91,6 @@ scenario1(_) ->
         ?_assertEqual(game:next_turn(B5), 1),
         ?_assertEqual(game:next_turn(B6), 1),
         ?_assertEqual(game:next_turn(B7), 2),
-        % correct hand shown?
-        ?_assertEqual(
-            game:hand_from_others(B3, 1),
-            [{0, true}, {0, true}, {14, false}, {0, true}, {1, true}]
-        ),
         % correct ability to stay?
         ?_assertNot(game:can_stay(B1)),
         ?_assertNot(game:can_stay(B2)),
@@ -104,9 +99,49 @@ scenario1(_) ->
         ?_assertNot(game:can_stay(B7)),
         ?_assert(game:can_stay(B5)),
         ?_assert(game:can_stay(B6)),
+        % correct attack?
+        ?_assertMatch(#card{hidden = false}, lists:nth(3, game:hand(B3, 1))),
+        ?_assertMatch(#card{hidden = false}, lists:nth(5, game:hand(B5, 1))),
+        ?_assertMatch(#card{hidden = false}, lists:nth(1, game:hand(B102, 2))),
         % correctly check if the game has finished?
-        ?_assertEqual(game:check_finished(B105), not_finished),
-        ?_assertEqual(game:check_finished(B106), {finished, 1})
+        ?_assertEqual(not_finished, game:check_finished(B105)),
+        ?_assertEqual({finished, 1}, game:check_finished(B106)),
+        % correctly converted into map?
+        ?_assertMatch(
+            #{
+                attacker_card := [1, [0, true, _]],
+                can_stay := false,
+                current_turn := 1,
+                deck_top := [0, true, _],
+                hands := [
+                    [[0, true, _], [0, true, _], [0, true, _], [1, true, _]],
+                    [[1, true, _], [1, true, _], [1, true, _], [1, true, _]]
+                ],
+                next_turn := 2,
+                num_players := 2,
+                winner := null
+            },
+            game:board_to_map(B2)
+        ),
+        ?_assertMatch(
+            #{
+                attacker_card := [1, [0, true, _]],
+                can_stay := false,
+                current_turn := 1,
+                deck_top := [0, true, _],
+                hands := [
+                    [[0, true, _], [0, true, _], [0, true, _], [1, true, _]],
+                    [[1, true, _], [1, true, _], [1, true, _], [1, true, _]]
+                ],
+                next_turn := 2,
+                num_players := 2,
+                winner := null,
+                your_attacker_card_from_deck := 14,
+                your_hand := [4, 10, 18, 21],
+                your_player_index := 1
+            },
+            game:board_to_map(B2, 1)
+        )
     ].
 
 scenario2(_) ->
@@ -130,15 +165,19 @@ draw_N_times(Board, N) ->
     B1 = game:choose_attacker_card(Board),
     TargetPlayer = game:next_turn(B1),
     TargetHand = game:hand(B1, TargetPlayer),
-    case util:find_first_index(fun({_, H}) -> H end, TargetHand) of
+    case util:find_first_index(fun(C) -> C#card.hidden end, TargetHand) of
         false ->
             erlang:error(invalid_board);
         HandIndex ->
             Guess =
                 case lists:nth(HandIndex, TargetHand) of
-                    {0, _} -> 1;
-                    {I, _} -> I - 1
+                    #card{num = 0} -> 1;
+                    #card{num = I} -> I - 1
                 end,
             {failure, B2} = game:attack(B1, game:next_turn(B1), HandIndex, Guess),
             draw_N_times(B2, N - 1)
     end.
+
+%% Private functions
+cards2nums([#card{num = N} | L]) -> [N | cards2nums(L)];
+cards2nums([]) -> [].

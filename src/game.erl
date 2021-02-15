@@ -1,80 +1,63 @@
 -module(game).
+-include("game.hrl").
 -export([
     new_board/1,
     can_stay/1,
     num_players/1,
     attacker_card/1,
-    attacker_card_from_others/1,
     current_turn/1,
     next_turn/1,
     has_player_lost/2,
     check_finished/1,
     hand/2,
-    hand_from_others/2,
-    get_deck_top_from_others/1,
+    deck_top/1,
     choose_attacker_card/1,
     choose_attacker_card/2,
     attack/4,
     stay/1,
     board_to_map/2,
     board_to_map/1
+    %    attacker_card_from_others/1,
+    %    hand_from_others/2,
+    %    get_deck_top_from_others/1,
 ]).
 
--record(card, {
-    % int [0, 24)
-    num,
-    % bool 伏せられているか
-    hidden = true
-}).
--record(board, {
-    % card array array 各プレイヤーが持つカード
-    hands,
-    % int list 山札
-    deck,
-    % int <= length(hands) deckの先頭を使ってattackを行う人
-    turn = 1,
-    % bool stayができるかどうか
-    can_stay = false,
-    % card: attacker card; {deck, N} or {hand, HI}
-    attacker_card
-}).
-
-new_board(NumPlayers) when is_integer(NumPlayers), 2 =< NumPlayers, NumPlayers =< 4 ->
-    Nums = shuffle_list(lists:seq(0, 23)),
-    {HandsNum, Deck} =
+-spec new_board(2..4) -> board().
+new_board(NumPlayers) ->
+    Cards = [
+        #card{num = N, hidden = true, uuid = gen_uuid()}
+        || N <- shuffle_list(lists:seq(0, 23))
+    ],
+    {HandList, Deck} =
         case NumPlayers of
             2 ->
-                [N1, N2, N3, N4, N5, N6, N7, N8 | D] = Nums,
-                {[[N1, N2, N3, N4], [N5, N6, N7, N8]], D};
+                [C1, C2, C3, C4, C5, C6, C7, C8 | D] = Cards,
+                {[[C1, C2, C3, C4], [C5, C6, C7, C8]], D};
             3 ->
-                [N1, N2, N3, N4, N5, N6, N7, N8, N9 | D] = Nums,
-                {[[N1, N2, N3], [N4, N5, N6], [N7, N8, N9]], D};
+                [C1, C2, C3, C4, C5, C6, C7, C8, C9 | D] = Cards,
+                {[[C1, C2, C3], [C4, C5, C6], [C7, C8, C9]], D};
             4 ->
-                [N1, N2, N3, N4, N5, N6, N7, N8 | D] = Nums,
-                {[[N1, N2], [N3, N4], [N5, N6], [N7, N8]], D}
+                [C1, C2, C3, C4, C5, C6, C7, C8 | D] = Cards,
+                {[[C1, C2], [C3, C4], [C5, C6], [C7, C8]], D}
         end,
-    Hands = array:from_list([
-        array:from_list([#card{num = N} || N <- lists:sort(HandNum)])
-        || HandNum <- HandsNum
-    ]),
-    #board{hands = Hands, deck = Deck}.
+    SortedHandList = [sorted_cards(L) || L <- HandList],
+    Hands = nested_list_to_array(SortedHandList),
+    #board{hands = Hands, deck = Deck, turn = 1, can_stay = false, attacker_card = undefined}.
 
+-spec can_stay(board()) -> boolean().
 can_stay(Board) -> Board#board.can_stay.
 
+-spec num_players(board()) -> pos_integer().
 num_players(Board) -> array:size(Board#board.hands).
 
+-spec attacker_card(board()) -> 'undefined' | {'deck', card()} | {'hand', hand_index()}.
 attacker_card(Board) -> Board#board.attacker_card.
 
-attacker_card_from_others(Board) ->
-    case attacker_card(Board) of
-        undefined -> undefined;
-        {deck, N} -> {deck, N rem 2};
-        {hand, HI} -> {hand, HI}
-    end.
-
+-spec current_turn(board()) -> player_index().
 current_turn(Board) -> Board#board.turn.
 
-next_turn(Board = #board{}) ->
+-spec next_turn(board()) -> player_index().
+next_turn(Board) ->
     case check_finished(Board) of
         {finished, _} ->
             throw(game_already_finished);
@@ -93,95 +76,47 @@ next_turn(Board = #board{}) ->
             end
     end.
 
-has_player_lost(Board = #board{}, PlayerIndex) ->
+-spec has_player_lost(board(), player_index()) -> boolean().
+has_player_lost(Board, PlayerIndex) ->
     % i.e., all cards of hand are revealed?
-    lists:all(fun({_, H}) -> not H end, hand(Board, PlayerIndex)).
+    lists:all(fun(C) -> not C#card.hidden end, hand(Board, PlayerIndex)).
 
-check_finished(Board = #board{}) ->
+-spec check_finished(board()) -> not_finished | {finished, player_index()}.
+check_finished(Board) ->
     L = [has_player_lost(Board, PI) || PI <- lists:seq(1, num_players(Board))],
-    case util:count_true(L) >= num_players(Board) - 1 of
+    case count_true(L) >= num_players(Board) - 1 of
         false -> not_finished;
         true -> {finished, util:find_first_index(fun(B) -> not B end, L)}
     end.
 
-hand(Board = #board{}, PlayerIndex) when is_integer(PlayerIndex) ->
-    L = array:to_list(get_hand(Board, PlayerIndex)),
-    lists:map(fun(#card{num = N, hidden = H}) -> {N, H} end, L).
+-spec hand(board(), player_index()) -> [card()].
+hand(Board, PlayerIndex) ->
+    array:to_list(get_hand(Board, PlayerIndex)).
 
-hand_from_others(Board = #board{}, PlayerIndex) when is_integer(PlayerIndex) ->
-    H = hand(Board, PlayerIndex),
-    lists:map(
-        fun({N, Hidden}) ->
-            case Hidden of
-                % If hidden, only its color is shown.
-                true -> {N rem 2, Hidden};
-                false -> {N, Hidden}
-            end
-        end,
-        H
-    ).
+-spec deck_top(board()) -> 'undefined' | card().
+deck_top(#board{deck = []}) -> undefined;
+deck_top(#board{deck = [C | _]}) -> C.
 
-get_deck_top_from_others(#board{deck = Deck}) ->
-    case Deck of
-        [] -> undefined;
-        [N | _] -> N rem 2
+-spec choose_attacker_card(board(), 'undefined' | hand_index()) -> board().
+choose_attacker_card(Board = #board{deck = [C | NewDeck]}, _) ->
+    % Deck is not empty.
+    Board#board{deck = NewDeck, attacker_card = {deck, C}};
+choose_attacker_card(Board = #board{deck = []}, HandIndex) ->
+    % Deck is empty! Use HandIndex.
+    % The chosen card should be hidden.
+    C = get_hand(Board, current_turn(Board), HandIndex),
+    case C#card.hidden of
+        false -> throw(invalid_card_state);
+        true -> Board#board{attacker_card = {hand, HandIndex}}
     end.
 
-choose_attacker_card(Board = #board{deck = Deck}, HandIndex) ->
-    case Deck of
-        [N | NewDeck] ->
-            % Deck is not empty.
-            Board#board{deck = NewDeck, attacker_card = {deck, N}};
-        [] ->
-            % Deck is empty! Use HandIndex.
-            % The chosen card should be hidden.
-            C = get_hand(Board, current_turn(Board), HandIndex),
-            case C#card.hidden of
-                false -> throw(invalid_card_state);
-                true -> Board#board{attacker_card = {hand, HandIndex}}
-            end
-    end.
-
+-spec choose_attacker_card(board()) -> board().
 choose_attacker_card(Board) ->
     choose_attacker_card(Board, undefined).
 
-check_attack(Board, TargetPlayer, TargetIndex, Guess) when
-    is_integer(TargetPlayer), is_integer(TargetIndex), is_integer(Guess)
-->
-    case {Board, TargetPlayer =:= current_turn(Board)} of
-        {#board{attacker_card = undefined}, _} ->
-            throw(attacker_card_not_set);
-        {_, true} ->
-            throw(invalid_player_index);
-        _ ->
-            case get_hand(Board, TargetPlayer, TargetIndex) of
-                #card{hidden = false} -> throw(invalid_card_state);
-                #card{hidden = true, num = Guess} -> success;
-                _ -> failure
-            end
-    end.
-
-reset_attacker_card(Board = #board{}, Hidden) ->
-    Turn = current_turn(Board),
-    NewBoard =
-        case Board#board.attacker_card of
-            {deck, N} ->
-                OldHand = array:to_list(get_hand(Board, Turn)),
-                NewHand = [#card{num = N, hidden = Hidden} | OldHand],
-                SortedNewHand = lists:sort(NewHand),
-                set_hand(Board, Turn, array:from_list(SortedNewHand));
-            {hand, HI} when Hidden =:= false ->
-                reveal_hand(Board, Turn, HI);
-            {hand, _} ->
-                Board
-        end,
-    NewBoard#board{
-        attacker_card = undefined
-    }.
-
-attack(Board, TargetPlayer, TargetIndex, Guess) when
-    is_integer(TargetPlayer), is_integer(TargetIndex), is_integer(Guess)
-->
+-spec attack(board(), player_index(), hand_index(), card_number()) ->
+    {'failure', board()} | {'success', board()}.
+attack(Board, TargetPlayer, TargetIndex, Guess) ->
     case check_attack(Board, TargetPlayer, TargetIndex, Guess) of
         failure ->
             NewBoard = reset_attacker_card(Board, false),
@@ -196,6 +131,7 @@ attack(Board, TargetPlayer, TargetIndex, Guess) when
             }}
     end.
 
+-spec stay(board()) -> board().
 stay(Board = #board{can_stay = true}) ->
     NewBoard = reset_attacker_card(Board, true),
     NewBoard#board{
@@ -205,7 +141,14 @@ stay(Board = #board{can_stay = true}) ->
 stay(#board{can_stay = false}) ->
     throw(cannot_stay).
 
+-spec board_to_map(board(), 'undefined' | player_index()) -> #{any() => any()}.
 board_to_map(Board, PlayerIndex) ->
+    Card2List = fun
+        (#card{num = N, hidden = true, uuid = UUID}) -> [N rem 2, true, UUID];
+        (#card{num = N, hidden = false, uuid = UUID}) -> [N, false, UUID];
+        (undefined) -> null
+    end,
+
     Map = #{
         can_stay => can_stay(Board),
         current_turn => current_turn(Board),
@@ -220,15 +163,12 @@ board_to_map(Board, PlayerIndex) ->
                 not_finished -> null;
                 {finished, Winner} -> Winner
             end,
-        hands => [
-            [[N, H] || {N, H} <- hand_from_others(Board, PI)]
-            || PI <- lists:seq(1, num_players(Board))
-        ],
-        deck_top => get_deck_top_from_others(Board),
+        hands => [[Card2List(C) || C <- hand(Board, PI)] || PI <- lists:seq(1, num_players(Board))],
+        deck_top => Card2List(deck_top(Board)),
         attacker_card =>
-            case attacker_card_from_others(Board) of
+            case attacker_card(Board) of
                 undefined -> null;
-                {deck, N} -> [1, N];
+                {deck, C} -> [1, Card2List(C)];
                 {hand, HI} -> [2, HI]
             end
     },
@@ -238,10 +178,10 @@ board_to_map(Board, PlayerIndex) ->
         PI ->
             Map#{
                 your_player_index => PI,
-                your_hand => [N || {N, _H} <- hand(Board, PI)],
+                your_hand => [C#card.num || C <- hand(Board, PI)],
                 your_attacker_card_from_deck =>
                     case {current_turn(Board), attacker_card(Board)} of
-                        {Turn, {deck, N1}} when Turn =:= PI -> N1;
+                        {PI, {deck, #card{num = N1}}} -> N1;
                         _ -> null
                     end
             }
@@ -250,11 +190,26 @@ board_to_map(Board, PlayerIndex) ->
 board_to_map(Board) ->
     board_to_map(Board, undefined).
 
-%%% private functions
+%%%%%%%%%%%%%%%%%%%%%%
+%%% Private functions
+%%%%%%%%%%%%%%%%%%%%%%
 shuffle_list(L) when is_list(L) ->
     % Thanks to: https://stackoverflow.com/a/8820501
     [X || {_, X} <- lists:sort([{rand:uniform(), N} || N <- L])].
 
+nested_list_to_array(L) when is_list(L) -> array:from_list([nested_list_to_array(E) || E <- L]);
+nested_list_to_array(E) -> E.
+
+gen_uuid() ->
+    list_to_binary(uuid:uuid_to_string(uuid:get_v4(), nodash)).
+
+count_true([], Sum) -> Sum;
+count_true([H | T], Sum) when H =:= true -> count_true(T, Sum + 1);
+count_true([H | T], Sum) when H =:= false -> count_true(T, Sum).
+
+count_true(L) -> count_true(L, 0).
+
+-spec get_hand(board(), player_index()) -> array:array(card()).
 get_hand(Board = #board{hands = Hands}, PlayerIndex) ->
     case 1 =< PlayerIndex andalso PlayerIndex =< num_players(Board) of
         false ->
@@ -263,6 +218,7 @@ get_hand(Board = #board{hands = Hands}, PlayerIndex) ->
             array:get(PlayerIndex - 1, Hands)
     end.
 
+-spec get_hand(board(), player_index(), hand_index()) -> card().
 get_hand(Board = #board{}, PlayerIndex, HandIndex) ->
     Hand = get_hand(Board, PlayerIndex),
     case 1 =< HandIndex andalso HandIndex =< array:size(Hand) of
@@ -270,16 +226,19 @@ get_hand(Board = #board{}, PlayerIndex, HandIndex) ->
         true -> array:get(HandIndex - 1, Hand)
     end.
 
+-spec set_hand(board(), player_index(), array:array(card())) -> board().
 set_hand(Board = #board{hands = OldHands}, PlayerIndex, NewHand) ->
     NewHands = array:set(PlayerIndex - 1, NewHand, OldHands),
     Board#board{hands = NewHands}.
 
-set_hand(Board = #board{}, PlayerIndex, HandIndex, NewCard) ->
+-spec set_hand(board(), player_index(), hand_index(), card()) -> board().
+set_hand(Board, PlayerIndex, HandIndex, NewCard) ->
     OldHand = get_hand(Board, PlayerIndex),
     NewHand = array:set(HandIndex - 1, NewCard, OldHand),
     set_hand(Board, PlayerIndex, NewHand).
 
-reveal_hand(Board = #board{}, PlayerIndex, HandIndex) ->
+-spec reveal_hand(board(), player_index(), hand_index()) -> board().
+reveal_hand(Board, PlayerIndex, HandIndex) ->
     OldCard = get_hand(Board, PlayerIndex, HandIndex),
     case OldCard of
         #card{hidden = false} ->
@@ -288,3 +247,37 @@ reveal_hand(Board = #board{}, PlayerIndex, HandIndex) ->
             NewCard = OldCard#card{hidden = false},
             set_hand(Board, PlayerIndex, HandIndex, NewCard)
     end.
+
+-spec check_attack(board(), player_index(), hand_index(), card_number()) -> 'success' | 'failure'.
+check_attack(#board{attacker_card = undefined}, _, _, _) ->
+    throw(attacker_card_not_set);
+check_attack(Board, TargetPlayer, _, _) when TargetPlayer =:= Board#board.turn ->
+    throw(invalid_player_index);
+check_attack(Board, TargetPlayer, TargetIndex, Guess) ->
+    case get_hand(Board, TargetPlayer, TargetIndex) of
+        #card{hidden = false} -> throw(invalid_card_state);
+        #card{hidden = true, num = Guess} -> success;
+        _ -> failure
+    end.
+
+-spec sorted_cards([card()]) -> [card()].
+sorted_cards(L) ->
+    lists:sort(fun(#card{num = A}, #card{num = B}) -> A =< B end, L).
+
+-spec reset_attacker_card(board(), boolean()) -> board().
+reset_attacker_card(Board, Hidden) ->
+    Turn = current_turn(Board),
+    NewBoard =
+        case Board#board.attacker_card of
+            {deck, C} ->
+                OldHand = array:to_list(get_hand(Board, Turn)),
+                NewHand = sorted_cards([C#card{hidden = Hidden} | OldHand]),
+                set_hand(Board, Turn, array:from_list(NewHand));
+            {hand, HI} when Hidden =:= false ->
+                reveal_hand(Board, Turn, HI);
+            {hand, _} ->
+                Board
+        end,
+    NewBoard#board{
+        attacker_card = undefined
+    }.
