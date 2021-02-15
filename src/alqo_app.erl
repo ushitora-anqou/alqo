@@ -10,9 +10,7 @@
 -export([start/2, stop/1]).
 
 start(_StartType, _StartArgs) ->
-    ok = cowboy_session_config:set([
-        {expire, 86400}
-    ]),
+    ok = application:set_env(cowboy_session, expire, 86400),
     cowboy_session:start(),
     Dispatch = cowboy_router:compile([
         {<<"localhost">>, [
