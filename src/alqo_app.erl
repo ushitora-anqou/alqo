@@ -28,7 +28,7 @@ start(_StartType, _StartArgs) ->
         [{port, 8080}],
         #{
             env => #{dispatch => Dispatch},
-            middlewares => [cowboy_session, cowboy_router, cowboy_handler]
+            middlewares => [logging_middleware, cowboy_session, cowboy_router, cowboy_handler]
         }
     ),
     alqo_sup:start_link().
