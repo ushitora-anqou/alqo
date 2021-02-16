@@ -14,7 +14,6 @@ start(_StartType, _StartArgs) ->
     cowboy_session:start(),
     Dispatch = cowboy_router:compile([
         {<<"localhost">>, [
-            {<<"/">>, cowboy_static, {priv_file, alqo, "static/index.html"}},
             {<<"/api/v1/room">>, room_handler, undefined},
             {<<"/api/v1/room/:roomid">>, room_handler, undefined},
             {<<"/api/v1/room/:roomid/ws">>, ws_room, []},
