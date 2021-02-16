@@ -13,7 +13,7 @@ start(_StartType, _StartArgs) ->
     ok = application:set_env(cowboy_session, expire, 86400),
     cowboy_session:start(),
     Dispatch = cowboy_router:compile([
-        {<<"localhost">>, [
+        {'_', [
             {<<"/api/v1/room">>, room_handler, undefined},
             {<<"/api/v1/room/:roomid">>, room_handler, undefined},
             {<<"/api/v1/room/:roomid/ws">>, ws_room, []},
